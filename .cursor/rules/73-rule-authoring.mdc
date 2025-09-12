@@ -1,0 +1,459 @@
+---
+title: "MDC Rule Authoring Guidelines"
+description: "Meta-practices and standards for creating effective Cursor MDC rules and documentation"
+globs: ['**/*.mdc', '**/rules/**', '**/docs/**', '**/*.md']
+activation: "onLanguage:markdown"
+version: "2.0"
+created: "2025-09-12"
+updated: "2025-09-12"
+---
+
+### Rule Authoring Meta-Guidelines - MDC Rules Guide
+
+### Overview
+Meta-practices and guidelines for creating effective rules, covering rule authoring (@ref:73-rule-authoring) patterns, documentation standards, writing techniques, lifecycle management, and best practices for rule systems across various domains.
+
+### Rule Creation Fundamentals
+
+### Core Principles for Effective Rules
+1. **Clarity and Precision**: Rules must be unambiguous and actionable
+2. **Specificity**: Focus on particular tasks rather than broad generalities
+3. **Conciseness**: Keep rules under a few hundred lines to maintain focus
+4. **Actionability**: Provide clear instructions that can be followed
+5. **Examples**: Include code examples and practical demonstrations
+
+### Rule Structure Template
+```markdown
+---
+description: Short, clear description of the rule's purpose
+globs: optional/path/pattern/**/*
+alwaysApply: false
+---
+### Rule Title
+
+### Overview
+Brief explanation of what this rule covers and why it's important.
+
+### Guidelines
+1. **Specific Guideline**: Clear, actionable instruction
+   - Implementation detail
+   - Example or code snippet
+
+2. **Another Guideline**: Follow consistent pattern
+   ```language
+   // Good example
+   function goodExample() {
+     // Implementation following guidelines
+   }
+   
+   // Bad example
+   function badExample() {
+     // What to avoid
+   }
+   ```
+
+### Best Practices
+- Bullet point recommendations
+- Common pitfalls to avoid
+- Performance considerations
+```
+
+### Cursor Rules (.mdc) Best Practices
+
+### Directory Structure
+```
+PROJECT_ROOT/
+├── .cursor/
+│   └── rules/
+│       ├── core-conventions.mdc
+│       ├── framework-specific.mdc
+│       ├── security-guidelines.mdc
+│       └── learned-memories.mdc
+└── ...
+```
+
+### File Naming Conventions
+- **Use kebab-case**: `database-optimization.mdc`
+- **Descriptive names**: Clearly indicate rule purpose
+- **Consistent prefixes**: Group related rules (`api-`, `ui-`, `db-`)
+- **Always .mdc extension**: Required for Cursor recognition
+
+### Metadata Configuration
+```yaml
+---
+description: "Concise explanation (under 100 characters)"
+globs: "**/*.{js,ts,jsx,tsx}"  # File patterns for auto-apply
+alwaysApply: false             # Manual vs automatic activation
+---
+```
+
+### Content Organization Patterns
+```markdown
+### Rule Title (Clear and Specific)
+
+### Purpose
+One-sentence explanation of the rule's objective.
+
+### Guidelines
+1. **Primary Directive**: Main instruction
+2. **Implementation Details**: How to implement
+3. **Edge Cases**: Special considerations
+
+### Examples
+### ✅ Good Pattern
+```language
+// Demonstrate correct implementation
+```
+
+### ❌ Avoid Pattern
+```language
+// Show what not to do
+```
+
+### Common Pitfalls
+- Issue to watch for
+- Why it's problematic
+- How to prevent it
+```
+
+### Rule Engine Design Patterns
+
+### Rules Engine Architecture
+```javascript
+// Rule interface definition
+interface Rule {
+  id: string;
+  description: string;
+  condition: (context: any) => boolean;
+  action: (context: any) => any;
+  priority?: number;
+}
+
+// Rule engine implementation
+class RulesEngine {
+  private rules: Rule[] = [];
+  
+  addRule(rule: Rule): void {
+    this.rules.push(rule);
+    this.rules.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+  }
+  
+  execute(context: any): any[] {
+    const results = [];
+    
+    for (const rule of this.rules) {
+      if (rule.condition(context)) {
+        results.push(rule.action(context));
+      }
+    }
+    
+    return results;
+  }
+}
+```
+
+### Rule Definition Patterns
+```javascript
+// Functional rule definition
+const validationRule = {
+  id: 'email-validation',
+  description: 'Validate email format',
+  condition: (data) => data.email && typeof data.email === 'string',
+  action: (data) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return {
+      isValid: emailRegex.test(data.email),
+      field: 'email',
+      message: emailRegex.test(data.email) ? 'Valid' : 'Invalid email format'
+    };
+  },
+  priority: 1
+};
+
+// Builder pattern for complex rules
+class RuleBuilder {
+  private rule: Partial<Rule> = {};
+  
+  id(id: string): RuleBuilder {
+    this.rule.id = id;
+    return this;
+  }
+  
+  when(condition: (context: any) => boolean): RuleBuilder {
+    this.rule.condition = condition;
+    return this;
+  }
+  
+  then(action: (context: any) => any): RuleBuilder {
+    this.rule.action = action;
+    return this;
+  }
+  
+  priority(priority: number): RuleBuilder {
+    this.rule.priority = priority;
+    return this;
+  }
+  
+  build(): Rule {
+    if (!this.rule.id || !this.rule.condition || !this.rule.action) {
+      throw new Error('Rule must have id, condition, and action');
+    }
+    return this.rule as Rule;
+  }
+}
+```
+
+### Effective Rule Writing Techniques
+
+### Active Voice and Directness
+```markdown
+### ✅ Good: Active and Direct
+- Use functional components with hooks
+- Implement error boundaries for production apps
+- Cache API responses using React Query
+
+### ❌ Avoid: Passive and Vague
+- Functional components should be used
+- Error handling might be considered
+- Caching could improve performance
+```
+
+### Specificity and Context
+```markdown
+### ✅ Specific Guidelines
+For Next.js App Router:
+- Place page components in `app/` directory
+- Use `loading.tsx` for loading states
+- Implement `error.tsx` for error boundaries
+- Use `layout.tsx` for shared layouts
+
+### ❌ Generic Guidelines
+- Organize files properly
+- Handle loading states
+- Implement error handling
+- Use layouts when needed
+```
+
+### Example-Driven Documentation
+```markdown
+### Authentication Implementation
+
+### Setup
+```typescript
+// JWT token verification middleware
+export const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.sendStatus(401);
+  }
+
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET!, (err: any, user: any) => {
+    if (err) return res.sendStatus(403);
+    req.user = user;
+    next();
+  });
+};
+```
+
+### Usage
+```typescript
+// Protect routes
+app.get('/protected', authenticateToken, (req, res) => {
+  res.json({ message: 'Access granted', user: req.user });
+});
+```
+```
+
+### Documentation Standards
+
+### Rule Documentation Structure
+```markdown
+### Rule Title
+**Author:** Name  
+**Type:** Category (Framework, Language, Pattern)  
+**Stats:** Views | Copies | Downloads  
+
+### Overview
+- **Purpose:** Brief explanation
+- **Scope:** What it covers
+- **Prerequisites:** Required knowledge
+
+### Guidelines
+1. **Principle Name**
+   - Clear instruction
+   - Implementation details
+   - Example code
+
+### Templates
+### Pattern Name
+```language
+// Template with placeholders
+function templateName(${parameter}: ${type}): ${returnType} {
+  // Implementation pattern
+  return ${result};
+}
+```
+
+### Anti-Patterns
+- What to avoid
+- Why it's problematic
+- Better alternatives
+```
+
+### Atomic Rule Structure
+```markdown
+### Single Responsibility Rules
+
+### Rule: Use Semantic HTML
+**Purpose:** Improve accessibility and SEO
+
+**Implementation:**
+- Use `<button>` for actions, not `<div>`
+- Use `<a>` for navigation, not `<span>`
+- Use heading hierarchy (`h1`, `h2`, `h3`) properly
+
+**Example:**
+```html
+<!-- ✅ Good -->
+<button onClick={handleSubmit}>Submit</button>
+<a href="/profile">Profile</a>
+
+<!-- ❌ Avoid -->
+<div onClick={handleSubmit}>Submit</div>
+<span onClick={navigate}>Profile</span>
+```
+```
+
+### Rule Lifecycle Management
+
+### Rule Creation Process
+1. **Identify Need**: Recurring patterns or problems
+2. **Research**: Gather best practices and examples  
+3. **Draft**: Create initial rule version
+4. **Review**: Test with team members
+5. **Refine**: Iterate based on feedback
+6. **Deploy**: Add to rule repository
+7. **Monitor**: Track usage and effectiveness
+8. **Update**: Maintain and improve over time
+
+### Version Control for Rules
+```markdown
+### Rule Versioning Pattern
+rules/
+├── v1/
+│   ├── react-hooks.mdc
+│   └── api-design.mdc
+├── v2/
+│   ├── react-hooks.mdc      # Updated for React 18
+│   └── api-design.mdc       # Added GraphQL patterns
+└── current/
+    ├── react-hooks.mdc -> ../v2/react-hooks.mdc
+    └── api-design.mdc -> ../v2/api-design.mdc
+```
+
+### Rule Maintenance Checklist
+- [ ] Review quarterly for outdated practices
+- [ ] Update examples with current syntax
+- [ ] Check for new framework versions
+- [ ] Validate against team feedback
+- [ ] Update performance recommendations
+- [ ] Refresh security guidelines
+
+### Rule Validation and Testing
+
+### Rule Testing Framework
+```javascript
+// Rule validation testing
+describe('Email Validation Rule', () => {
+  const rule = emailValidationRule;
+  
+  test('should validate correct email format', () => {
+    const context = { email: 'user@example.com' };
+    expect(rule.condition(context)).toBe(true);
+    
+    const result = rule.action(context);
+    expect(result.isValid).toBe(true);
+  });
+  
+  test('should reject invalid email format', () => {
+    const context = { email: 'invalid-email' };
+    const result = rule.action(context);
+    expect(result.isValid).toBe(false);
+    expect(result.message).toContain('Invalid email format');
+  });
+  
+  test('should handle missing email', () => {
+    const context = {};
+    expect(rule.condition(context)).toBe(false);
+  });
+});
+```
+
+### Rule Performance Metrics
+```javascript
+// Rule execution monitoring
+class RuleMetrics {
+  private metrics = new Map<string, {
+    executions: number;
+    totalTime: number;
+    errors: number;
+    lastExecuted: Date;
+  }>();
+  
+  recordExecution(ruleId: string, executionTime: number, error?: Error): void {
+    const current = this.metrics.get(ruleId) || {
+      executions: 0,
+      totalTime: 0,
+      errors: 0,
+      lastExecuted: new Date()
+    };
+    
+    current.executions++;
+    current.totalTime += executionTime;
+    current.lastExecuted = new Date();
+    
+    if (error) {
+      current.errors++;
+    }
+    
+    this.metrics.set(ruleId, current);
+  }
+  
+  getAverageExecutionTime(ruleId: string): number {
+    const metric = this.metrics.get(ruleId);
+    return metric ? metric.totalTime / metric.executions : 0;
+  }
+}
+```
+
+### Business Rules Documentation
+
+### Business Logic Capture
+```markdown
+### Business Rule: Order Processing
+
+### Rule Definition
+**ID:** ORDER-001  
+**Name:** Minimum Order Amount  
+**Type:** Validation Rule  
+
+### Business Context
+All orders must meet minimum amount threshold based on customer tier.
+
+### Implementation
+```typescript
+interface OrderValidationRule {
+  validateOrder(order: Order, customer: Customer): ValidationResult;
+}
+
+class MinimumOrderRule implements OrderValidationRule {
+  private minimumAmounts = {
+    'bronze': 25,
+    'silver': 15,
+    'gold': 0,
+
+---
+**Note**: Content truncated for brevity. See full documentation for complete details.
+---
