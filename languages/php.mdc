@@ -1,0 +1,1543 @@
+
+---
+description: "PHP development rules with modern practices and frameworks"
+globs: ["**/*.php", "**/composer.json", "**/composer.lock"]
+alwaysApply: false
+---
+
+# PHP Development Rules
+
+## Core Principles
+- **PSR Standards**: Follow PHP-FIG standards (PSR-1, PSR-2, PSR-4, PSR-12)
+- **Type Safety**: Use strict types and comprehensive type declarations
+- **Modern PHP**: Leverage PHP 8.3+ features and syntax
+- **Error Handling**: Implement proper exception handling and logging
+- **Security**: Follow OWASP guidelines and secure coding practices
+
+## Modern PHP Features
+
+### Type Declarations and Strict Types
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Service;
+
+use App\Entity\User;
+use App\Repository\UserRepositoryInterface;
+use App\Exception\ValidationException;
+use App\Exception\UserNotFoundException;
+
+// ✅ Good - Comprehensive type declarations
+final class UserService
+{
+    public function __construct(
+        private readonly UserRepositoryInterface $userRepository,
+        private readonly LoggerInterface $logger,
+        private readonly ValidatorInterface $validator
+    ) {}
+    
+    public function createUser(array $userData): User
+    {
+        $this->validateUserData($userData);
+        
+        $user = new User(
+            email: $userData['email'],
+            name: $userData['name'],
+            password: $this->hashPassword($userData['password'])
+        );
+        
+        $savedUser = $this->userRepository->save($user);
+        
+        $this->logger->info('User created', [
+            'user_id' => $savedUser->getId(),
+            'email' => $savedUser->getEmail()
+        ]);
+        
+        return $savedUser;
+    }
+    
+    public function findUser(string $id): ?User
+    {
+        if (empty($id)) {
+            throw new InvalidArgumentException('User ID cannot be empty');
+        }
+        
+        return $this->userRepository->findById($id);
+    }
+    
+    public function getUserOrFail(string $id): User
+    {
+        $user = $this->findUser($id);
+        
+        if ($user === null) {
+            throw new UserNotFoundException("User with ID {$id} not found");
+        }
+        
+        return $user;
+    }
+    
+    private function validateUserData(array $data): void
+    {
+        $violations = $this->validator->validate($data, [
+            'email' => ['required', 'email', 'max:255'],
+            'name' => ['required', 'string', 'max:100'],
+            'password' => ['required', 'string', 'min:8']
+        ]);
+        
+        if (!empty($violations)) {
+            throw new ValidationException('Validation failed', $violations);
+        }
+    }
+    
+    private function hashPassword(string $password): string
+    {
+        return password_hash($password, PASSWORD_ARGON2ID);
+    }
+}
+```
+
+### Enums and Match Expressions
+```php
+<?php
+
+declare(strict_types=1);
+
+// ✅ Good - Backed enums for type safety
+enum UserStatus: string
+{
+    case ACTIVE = 'active';
+    case INACTIVE = 'inactive';
+    case SUSPENDED = 'suspended';
+    case DELETED = 'deleted';
+    
+    public function getLabel(): string
+    {
+        return match ($this) {
+            self::ACTIVE => 'Active',
+            self::INACTIVE => 'Inactive',
+            self::SUSPENDED => 'Suspended',
+            self::DELETED => 'Deleted',
+        };
+    }
+    
+    public function canLogin(): bool
+    {
+        return match ($this) {
+            self::ACTIVE => true,
+            self::INACTIVE, self::SUSPENDED, self::DELETED => false,
+        };
+    }
+    
+    public static function fromString(string $status): self
+    {
+        return match (strtolower($status)) {
+            'active' => self::ACTIVE,
+            'inactive' => self::INACTIVE,
+            'suspended' => self::SUSPENDED,
+            'deleted' => self::DELETED,
+            default => throw new InvalidArgumentException("Invalid status: {$status}"),
+        };
+    }
+}
+
+// ✅ Good - Using enums in entities
+final class User
+{
+    public function __construct(
+        private readonly string $id,
+        private string $email,
+        private string $name,
+        private UserStatus $status = UserStatus::ACTIVE,
+        private readonly DateTimeImmutable $createdAt = new DateTimeImmutable(),
+        private DateTimeImmutable $updatedAt = new DateTimeImmutable()
+    ) {}
+    
+    public function activate(): void
+    {
+        $this->status = UserStatus::ACTIVE;
+        $this->updatedAt = new DateTimeImmutable();
+    }
+    
+    public function suspend(): void
+    {
+        $this->status = UserStatus::SUSPENDED;
+        $this->updatedAt = new DateTimeImmutable();
+    }
+    
+    public function canPerformAction(): bool
+    {
+        return $this->status->canLogin();
+    }
+    
+    // Getters...
+    public function getId(): string { return $this->id; }
+    public function getEmail(): string { return $this->email; }
+    public function getName(): string { return $this->name; }
+    public function getStatus(): UserStatus { return $this->status; }
+    public function getCreatedAt(): DateTimeImmutable { return $this->createdAt; }
+    public function getUpdatedAt(): DateTimeImmutable { return $this->updatedAt; }
+}
+```
+
+### Attributes and Reflection
+```php
+<?php
+
+declare(strict_types=1);
+
+// ✅ Good - Custom attributes for metadata
+#[Attribute(Attribute::TARGET_CLASS)]
+final class Entity
+{
+    public function __construct(
+        public readonly string $table,
+        public readonly ?string $primaryKey = 'id'
+    ) {}
+}
+
+#[Attribute(Attribute::TARGET_PROPERTY)]
+final class Column
+{
+    public function __construct(
+        public readonly string $name,
+        public readonly string $type = 'string',
+        public readonly bool $nullable = false
+    ) {}
+}
+
+#[Attribute(Attribute::TARGET_METHOD)]
+final class Route
+{
+    public function __construct(
+        public readonly string $path,
+        public readonly string $method = 'GET',
+        public readonly array $middleware = []
+    ) {}
+}
+
+// ✅ Good - Using attributes
+#[Entity(table: 'users')]
+final class User
+{
+    #[Column(name: 'id', type: 'uuid')]
+    private readonly string $id;
+    
+    #[Column(name: 'email', type: 'string')]
+    private string $email;
+    
+    #[Column(name: 'name', type: 'string')]
+    private string $name;
+    
+    #[Column(name: 'created_at', type: 'datetime')]
+    private readonly DateTimeImmutable $createdAt;
+    
+    // Constructor and methods...
+}
+
+// ✅ Good - Controller with route attributes
+final class UserController
+{
+    public function __construct(
+        private readonly UserService $userService
+    ) {}
+    
+    #[Route(path: '/users', method: 'POST', middleware: ['auth', 'validate'])]
+    public function create(Request $request): JsonResponse
+    {
+        try {
+            $user = $this->userService->createUser($request->all());
+            
+            return new JsonResponse([
+                'data' => $this->transformUser($user),
+                'message' => 'User created successfully'
+            ], 201);
+        } catch (ValidationException $e) {
+            return new JsonResponse([
+                'error' => 'Validation failed',
+                'violations' => $e->getViolations()
+            ], 400);
+        }
+    }
+    
+    #[Route(path: '/users/{id}', method: 'GET', middleware: ['auth'])]
+    public function show(string $id): JsonResponse
+    {
+        try {
+            $user = $this->userService->getUserOrFail($id);
+            
+            return new JsonResponse([
+                'data' => $this->transformUser($user)
+            ]);
+        } catch (UserNotFoundException $e) {
+            return new JsonResponse([
+                'error' => 'User not found'
+            ], 404);
+        }
+    }
+    
+    private function transformUser(User $user): array
+    {
+        return [
+            'id' => $user->getId(),
+            'email' => $user->getEmail(),
+            'name' => $user->getName(),
+            'status' => $user->getStatus()->value,
+            'created_at' => $user->getCreatedAt()->format(DateTimeInterface::ATOM)
+        ];
+    }
+}
+```
+
+## Laravel Best Practices
+
+### Eloquent Models and Relationships
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Carbon\Carbon;
+
+// ✅ Good - Eloquent model with proper typing
+final class User extends Model
+{
+    use HasFactory, SoftDeletes;
+    
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+        'email_verified_at',
+    ];
+    
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+    
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
+        'is_admin' => 'boolean',
+    ];
+    
+    // ✅ Good - Typed relationships
+    public function posts(): HasMany
+    {
+        return $this->hasMany(Post::class);
+    }
+    
+    public function roles(): BelongsToMany
+    {
+        return $this->belongsToMany(Role::class)
+            ->withTimestamps()
+            ->withPivot(['assigned_at', 'assigned_by']);
+    }
+    
+    // ✅ Good - Scopes with proper typing
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('status', UserStatus::ACTIVE->value);
+    }
+    
+    public function scopeVerified(Builder $query): Builder
+    {
+        return $query->whereNotNull('email_verified_at');
+    }
+    
+    // ✅ Good - Accessors and mutators
+    public function getFullNameAttribute(): string
+    {
+        return "{$this->first_name} {$this->last_name}";
+    }
+    
+    protected function password(): Attribute
+    {
+        return Attribute::make(
+            set: fn (string $value) => bcrypt($value),
+        );
+    }
+    
+    // ✅ Good - Model events
+    protected static function booted(): void
+    {
+        static::creating(function (User $user) {
+            $user->id = Str::uuid();
+        });
+        
+        static::created(function (User $user) {
+            event(new UserCreated($user));
+        });
+    }
+}
+```
+
+### Service Layer and Dependency Injection
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services;
+
+use App\Models\User;
+use App\Repositories\UserRepositoryInterface;
+use App\Events\UserCreated;
+use App\Exceptions\UserNotFoundException;
+use App\Exceptions\ValidationException;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException as LaravelValidationException;
+
+// ✅ Good - Service with dependency injection
+final class UserService
+{
+    public function __construct(
+        private readonly UserRepositoryInterface $userRepository,
+        private readonly NotificationService $notificationService,
+        private readonly AuditService $auditService
+    ) {}
+    
+    public function createUser(array $userData): User
+    {
+        $this->validateUserData($userData);
+        
+        return DB::transaction(function () use ($userData) {
+            $user = $this->userRepository->create([
+                'name' => $userData['name'],
+                'email' => $userData['email'],
+                'password' => Hash::make($userData['password']),
+                'email_verified_at' => null,
+            ]);
+            
+            $this->auditService->log('user.created', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+            ]);
+            
+            $this->notificationService->sendWelcomeEmail($user);
+            
+            event(new UserCreated($user));
+            
+            return $user;
+        });
+    }
+    
+    public function updateUser(string $userId, array $updateData): User
+    {
+        $user = $this->getUserOrFail($userId);
+        
+        $this->validateUpdateData($updateData);
+        
+        return DB::transaction(function () use ($user, $updateData) {
+            $updatedUser = $this->userRepository->update($user, $updateData);
+            
+            $this->auditService->log('user.updated', [
+                'user_id' => $user->id,
+                'changes' => $updateData,
+            ]);
+            
+            return $updatedUser;
+        });
+    }
+    
+    public function getUserOrFail(string $userId): User
+    {
+        $user = $this->userRepository->findById($userId);
+        
+        if (!$user) {
+            throw new UserNotFoundException("User with ID {$userId} not found");
+        }
+        
+        return $user;
+    }
+    
+    public function deleteUser(string $userId): void
+    {
+        $user = $this->getUserOrFail($userId);
+        
+        DB::transaction(function () use ($user) {
+            $this->userRepository->delete($user);
+            
+            $this->auditService->log('user.deleted', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+            ]);
+        });
+    }
+    
+    private function validateUserData(array $data): void
+    {
+        $validator = Validator::make($data, [
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'unique:users,email', 'max:255'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+        
+        if ($validator->fails()) {
+            throw new LaravelValidationException($validator);
+        }
+    }
+    
+    private function validateUpdateData(array $data): void
+    {
+        $validator = Validator::make($data, [
+            'name' => ['sometimes', 'string', 'max:255'],
+            'email' => ['sometimes', 'email', 'max:255'],
+        ]);
+        
+        if ($validator->fails()) {
+            throw new LaravelValidationException($validator);
+        }
+    }
+}
+```
+
+### API Resources and Controllers
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\CreateUserRequest;
+use App\Http\Requests\UpdateUserRequest;
+use App\Http\Resources\UserResource;
+use App\Http\Resources\UserCollection;
+use App\Services\UserService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+
+// ✅ Good - API controller with proper structure
+final class UserController extends Controller
+{
+    public function __construct(
+        private readonly UserService $userService
+    ) {}
+    
+    public function index(Request $request): UserCollection
+    {
+        $users = $this->userService->getPaginatedUsers(
+            page: (int) $request->get('page', 1),
+            perPage: (int) $request->get('per_page', 15),
+            filters: $request->only(['status', 'search'])
+        );
+        
+        return new UserCollection($users);
+    }
+    
+    public function store(CreateUserRequest $request): JsonResponse
+    {
+        $user = $this->userService->createUser($request->validated());
+        
+        return (new UserResource($user))
+            ->response()
+            ->setStatusCode(Response::HTTP_CREATED);
+    }
+    
+    public function show(string $id): UserResource
+    {
+        $user = $this->userService->getUserOrFail($id);
+        
+        return new UserResource($user);
+    }
+    
+    public function update(UpdateUserRequest $request, string $id): UserResource
+    {
+        $user = $this->userService->updateUser($id, $request->validated());
+        
+        return new UserResource($user);
+    }
+    
+    public function destroy(string $id): JsonResponse
+    {
+        $this->userService->deleteUser($id);
+        
+        return response()->json(null, Response::HTTP_NO_CONTENT);
+    }
+}
+
+// ✅ Good - Form request with validation
+final class CreateUserRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return $this->user()->can('create', User::class);
+    }
+    
+    public function rules(): array
+    {
+        return [
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'unique:users,email', 'max:255'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'role_ids' => ['sometimes', 'array'],
+            'role_ids.*' => ['exists:roles,id'],
+        ];
+    }
+    
+    public function messages(): array
+    {
+        return [
+            'email.unique' => 'This email address is already registered.',
+            'password.min' => 'Password must be at least 8 characters long.',
+        ];
+    }
+}
+
+// ✅ Good - API resource with proper transformation
+final class UserResource extends JsonResource
+{
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' => $this->id,
+            'name' => $this->name,
+            'email' => $this->email,
+            'status' => $this->status->value,
+            'email_verified_at' => $this->email_verified_at?->toISOString(),
+            'created_at' => $this->created_at->toISOString(),
+            'updated_at' => $this->updated_at->toISOString(),
+            
+            // Conditional relationships
+            'roles' => RoleResource::collection($this->whenLoaded('roles')),
+            'posts' => PostResource::collection($this->whenLoaded('posts')),
+            
+            // Conditional fields based on permissions
+            'email_verified' => $this->when(
+                $request->user()?->can('view-sensitive-data'),
+                fn () => $this->email_verified_at !== null
+            ),
+        ];
+    }
+}
+```
+
+## Symfony Best Practices
+
+### Controllers and Dependency Injection
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use App\Entity\User;
+use App\Service\UserService;
+use App\Repository\UserRepository;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Serializer\SerializerInterface;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
+
+// ✅ Good - Symfony controller with attributes
+#[Route('/api/users', name: 'api_users_')]
+final class UserController extends AbstractController
+{
+    public function __construct(
+        private readonly UserService $userService,
+        private readonly SerializerInterface $serializer,
+        private readonly ValidatorInterface $validator
+    ) {}
+    
+    #[Route('', name: 'index', methods: ['GET'])]
+    public function index(Request $request): JsonResponse
+    {
+        $page = (int) $request->query->get('page', 1);
+        $limit = (int) $request->query->get('limit', 10);
+        
+        $users = $this->userService->getPaginatedUsers($page, $limit);
+        
+        return $this->json([
+            'data' => $users,
+            'meta' => [
+                'page' => $page,
+                'limit' => $limit,
+                'total' => count($users)
+            ]
+        ]);
+    }
+    
+    #[Route('', name: 'create', methods: ['POST'])]
+    public function create(Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+        
+        $user = $this->serializer->deserialize(
+            $request->getContent(),
+            User::class,
+            'json'
+        );
+        
+        $violations = $this->validator->validate($user);
+        
+        if (count($violations) > 0) {
+            return $this->json([
+                'error' => 'Validation failed',
+                'violations' => (string) $violations
+            ], Response::HTTP_BAD_REQUEST);
+        }
+        
+        $createdUser = $this->userService->createUser($user);
+        
+        return $this->json($createdUser, Response::HTTP_CREATED);
+    }
+    
+    #[Route('/{id}', name: 'show', methods: ['GET'])]
+    public function show(string $id): JsonResponse
+    {
+        $user = $this->userService->getUserOrFail($id);
+        
+        return $this->json($user);
+    }
+    
+    #[Route('/{id}', name: 'update', methods: ['PUT'])]
+    public function update(string $id, Request $request): JsonResponse
+    {
+        $user = $this->userService->getUserOrFail($id);
+        
+        $this->serializer->deserialize(
+            $request->getContent(),
+            User::class,
+            'json',
+            ['object_to_populate' => $user]
+        );
+        
+        $violations = $this->validator->validate($user);
+        
+        if (count($violations) > 0) {
+            return $this->json([
+                'error' => 'Validation failed',
+                'violations' => (string) $violations
+            ], Response::HTTP_BAD_REQUEST);
+        }
+        
+        $updatedUser = $this->userService->updateUser($user);
+        
+        return $this->json($updatedUser);
+    }
+    
+    #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
+    public function delete(string $id): JsonResponse
+    {
+        $this->userService->deleteUser($id);
+        
+        return $this->json(null, Response::HTTP_NO_CONTENT);
+    }
+}
+```
+
+### Doctrine Entities and Repositories
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Entity;
+
+use App\Repository\UserRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
+use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
+use Symfony\Component\Validator\Constraints as Assert;
+
+// ✅ Good - Doctrine entity with proper mapping
+#[ORM\Entity(repositoryClass: UserRepository::class)]
+#[ORM\Table(name: 'users')]
+#[ORM\HasLifecycleCallbacks]
+final class User implements UserInterface, PasswordAuthenticatedUserInterface
+{
+    #[ORM\Id]
+    #[ORM\Column(type: 'uuid', unique: true)]
+    private string $id;
+    
+    #[ORM\Column(type: 'string', length: 180, unique: true)]
+    #[Assert\NotBlank]
+    #[Assert\Email]
+    private string $email;
+    
+    #[ORM\Column(type: 'string', length: 255)]
+    #[Assert\NotBlank]
+    #[Assert\Length(min: 2, max: 255)]
+    private string $name;
+    
+    #[ORM\Column(type: 'json')]
+    private array $roles = [];
+    
+    #[ORM\Column(type: 'string')]
+    private string $password;
+    
+    #[ORM\Column(type: 'datetime_immutable')]
+    private DateTimeImmutable $createdAt;
+    
+    #[ORM\Column(type: 'datetime_immutable')]
+    private DateTimeImmutable $updatedAt;
+    
+    #[ORM\OneToMany(mappedBy: 'author', targetEntity: Post::class, cascade: ['persist', 'remove'])]
+    private Collection $posts;
+    
+    public function __construct()
+    {
+        $this->id = Uuid::v4()->toString();
+        $this->posts = new ArrayCollection();
+        $this->createdAt = new DateTimeImmutable();
+        $this->updatedAt = new DateTimeImmutable();
+    }
+    
+    #[ORM\PreUpdate]
+    public function updateTimestamp(): void
+    {
+        $this->updatedAt = new DateTimeImmutable();
+    }
+    
+    // UserInterface implementation
+    public function getUserIdentifier(): string
+    {
+        return $this->email;
+    }
+    
+    public function getRoles(): array
+    {
+        $roles = $this->roles;
+        $roles[] = 'ROLE_USER';
+        
+        return array_unique($roles);
+    }
+    
+    public function eraseCredentials(): void
+    {
+        // Clear temporary, sensitive data
+    }
+    
+    // PasswordAuthenticatedUserInterface implementation
+    public function getPassword(): string
+    {
+        return $this->password;
+    }
+    
+    public function setPassword(string $password): self
+    {
+        $this->password = $password;
+        return $this;
+    }
+    
+    // Getters and setters...
+    public function getId(): string { return $this->id; }
+    public function getEmail(): string { return $this->email; }
+    public function setEmail(string $email): self { $this->email = $email; return $this; }
+    public function getName(): string { return $this->name; }
+    public function setName(string $name): self { $this->name = $name; return $this; }
+    public function getCreatedAt(): DateTimeImmutable { return $this->createdAt; }
+    public function getUpdatedAt(): DateTimeImmutable { return $this->updatedAt; }
+    
+    public function getPosts(): Collection { return $this->posts; }
+    public function addPost(Post $post): self
+    {
+        if (!$this->posts->contains($post)) {
+            $this->posts[] = $post;
+            $post->setAuthor($this);
+        }
+        return $this;
+    }
+}
+
+// ✅ Good - Custom repository with typed methods
+final class UserRepository extends ServiceEntityRepository
+{
+    public function __construct(ManagerRegistry $registry)
+    {
+        parent::__construct($registry, User::class);
+    }
+    
+    public function findByEmail(string $email): ?User
+    {
+        return $this->findOneBy(['email' => $email]);
+    }
+    
+    public function findActiveUsers(): array
+    {
+        return $this->createQueryBuilder('u')
+            ->where('u.status = :status')
+            ->setParameter('status', UserStatus::ACTIVE->value)
+            ->orderBy('u.createdAt', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+    
+    public function findUsersByRole(string $role): array
+    {
+        return $this->createQueryBuilder('u')
+            ->where('JSON_CONTAINS(u.roles, :role) = 1')
+            ->setParameter('role', json_encode($role))
+            ->getQuery()
+            ->getResult();
+    }
+    
+    public function save(User $user): void
+    {
+        $this->getEntityManager()->persist($user);
+        $this->getEntityManager()->flush();
+    }
+    
+    public function remove(User $user): void
+    {
+        $this->getEntityManager()->remove($user);
+        $this->getEntityManager()->flush();
+    }
+}
+```
+
+## Error Handling and Logging
+
+### Exception Hierarchy
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Exception;
+
+use Exception;
+use Throwable;
+
+// ✅ Good - Base application exception
+abstract class AppException extends Exception
+{
+    protected array $context = [];
+    
+    public function __construct(
+        string $message = '',
+        int $code = 0,
+        ?Throwable $previous = null,
+        array $context = []
+    ) {
+        parent::__construct($message, $code, $previous);
+        $this->context = $context;
+    }
+    
+    public function getContext(): array
+    {
+        return $this->context;
+    }
+    
+    abstract public function getHttpStatusCode(): int;
+}
+
+// ✅ Good - Specific exception types
+final class ValidationException extends AppException
+{
+    private array $violations;
+    
+    public function __construct(string $message, array $violations = [], ?Throwable $previous = null)
+    {
+        parent::__construct($message, 0, $previous, ['violations' => $violations]);
+        $this->violations = $violations;
+    }
+    
+    public function getViolations(): array
+    {
+        return $this->violations;
+    }
+    
+    public function getHttpStatusCode(): int
+    {
+        return 400;
+    }
+}
+
+final class UserNotFoundException extends AppException
+{
+    public function getHttpStatusCode(): int
+    {
+        return 404;
+    }
+}
+
+final class UnauthorizedException extends AppException
+{
+    public function getHttpStatusCode(): int
+    {
+        return 401;
+    }
+}
+
+final class ForbiddenException extends AppException
+{
+    public function getHttpStatusCode(): int
+    {
+        return 403;
+    }
+}
+
+// ✅ Good - Global exception handler
+final class GlobalExceptionHandler
+{
+    public function __construct(
+        private readonly LoggerInterface $logger
+    ) {}
+    
+    public function handle(Throwable $exception): JsonResponse
+    {
+        $this->logException($exception);
+        
+        if ($exception instanceof AppException) {
+            return $this->handleAppException($exception);
+        }
+        
+        if ($exception instanceof ValidationException) {
+            return $this->handleValidationException($exception);
+        }
+        
+        return $this->handleGenericException($exception);
+    }
+    
+    private function handleAppException(AppException $exception): JsonResponse
+    {
+        return new JsonResponse([
+            'error' => $exception->getMessage(),
+            'context' => $exception->getContext(),
+        ], $exception->getHttpStatusCode());
+    }
+    
+    private function handleValidationException(ValidationException $exception): JsonResponse
+    {
+        return new JsonResponse([
+            'error' => 'Validation failed',
+            'violations' => $exception->getViolations(),
+        ], 400);
+    }
+    
+    private function handleGenericException(Throwable $exception): JsonResponse
+    {
+        return new JsonResponse([
+            'error' => 'Internal server error',
+        ], 500);
+    }
+    
+    private function logException(Throwable $exception): void
+    {
+        $context = [
+            'exception' => get_class($exception),
+            'message' => $exception->getMessage(),
+            'file' => $exception->getFile(),
+            'line' => $exception->getLine(),
+            'trace' => $exception->getTraceAsString(),
+        ];
+        
+        if ($exception instanceof AppException) {
+            $context = array_merge($context, $exception->getContext());
+        }
+        
+        $this->logger->error('Exception occurred', $context);
+    }
+}
+```
+
+## Testing
+
+### PHPUnit Testing
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Service;
+
+use App\Entity\User;
+use App\Service\UserService;
+use App\Repository\UserRepositoryInterface;
+use App\Exception\UserNotFoundException;
+use App\Exception\ValidationException;
+use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\MockObject\MockObject;
+use Psr\Log\LoggerInterface;
+
+// ✅ Good - Unit test with proper mocking
+final class UserServiceTest extends TestCase
+{
+    private UserService $userService;
+    private UserRepositoryInterface|MockObject $userRepository;
+    private LoggerInterface|MockObject $logger;
+    
+    protected function setUp(): void
+    {
+        $this->userRepository = $this->createMock(UserRepositoryInterface::class);
+        $this->logger = $this->createMock(LoggerInterface::class);
+        
+        $this->userService = new UserService(
+            $this->userRepository,
+            $this->logger
+        );
+    }
+    
+    public function testCreateUserSuccessfully(): void
+    {
+        // Arrange
+        $userData = [
+            'name' => 'John Doe',
+            'email' => 'john@example.com',
+            'password' => 'password123'
+        ];
+        
+        $expectedUser = new User();
+        $expectedUser->setName($userData['name']);
+        $expectedUser->setEmail($userData['email']);
+        
+        $this->userRepository
+            ->expects($this->once())
+            ->method('save')
+            ->willReturn($expectedUser);
+        
+        $this->logger
+            ->expects($this->once())
+            ->method('info')
+            ->with('User created', $this->isType('array'));
+        
+        // Act
+        $result = $this->userService->createUser($userData);
+        
+        // Assert
+        $this->assertInstanceOf(User::class, $result);
+        $this->assertEquals($userData['name'], $result->getName());
+        $this->assertEquals($userData['email'], $result->getEmail());
+    }
+    
+    public function testCreateUserWithInvalidDataThrowsValidationException(): void
+    {
+        // Arrange
+        $invalidData = [
+            'name' => '',
+            'email' => 'invalid-email',
+            'password' => '123'
+        ];
+        
+        // Assert
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Validation failed');
+        
+        // Act
+        $this->userService->createUser($invalidData);
+    }
+    
+    public function testGetUserOrFailThrowsExceptionWhenUserNotFound(): void
+    {
+        // Arrange
+        $userId = 'non-existent-id';
+        
+        $this->userRepository
+            ->expects($this->once())
+            ->method('findById')
+            ->with($userId)
+            ->willReturn(null);
+        
+        // Assert
+        $this->expectException(UserNotFoundException::class);
+        $this->expectExceptionMessage("User with ID {$userId} not found");
+        
+        // Act
+        $this->userService->getUserOrFail($userId);
+    }
+    
+    /**
+     * @dataProvider validUserDataProvider
+     */
+    public function testCreateUserWithVariousValidData(array $userData): void
+    {
+        // Arrange
+        $user = new User();
+        $user->setName($userData['name']);
+        $user->setEmail($userData['email']);
+        
+        $this->userRepository
+            ->expects($this->once())
+            ->method('save')
+            ->willReturn($user);
+        
+        // Act
+        $result = $this->userService->createUser($userData);
+        
+        // Assert
+        $this->assertInstanceOf(User::class, $result);
+    }
+    
+    public static function validUserDataProvider(): array
+    {
+        return [
+            'standard user' => [
+                ['name' => 'John Doe', 'email' => 'john@example.com', 'password' => 'password123']
+            ],
+            'user with long name' => [
+                ['name' => 'Very Long Name That Is Still Valid', 'email' => 'long@example.com', 'password' => 'password123']
+            ],
+            'user with special characters' => [
+                ['name' => 'José María', 'email' => 'jose@example.com', 'password' => 'password123']
+            ],
+        ];
+    }
+}
+
+// ✅ Good - Integration test
+final class UserControllerTest extends TestCase
+{
+    use RefreshDatabase;
+    
+    public function testCreateUserEndpoint(): void
+    {
+        // Arrange
+        $userData = [
+            'name' => 'John Doe',
+            'email' => 'john@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123'
+        ];
+        
+        // Act
+        $response = $this->postJson('/api/users', $userData);
+        
+        // Assert
+        $response->assertStatus(201)
+            ->assertJsonStructure([
+                'data' => [
+                    'id',
+                    'name',
+                    'email',
+                    'created_at'
+                ]
+            ]);
+        
+        $this->assertDatabaseHas('users', [
+            'name' => $userData['name'],
+            'email' => $userData['email']
+        ]);
+    }
+    
+    public function testGetUserEndpoint(): void
+    {
+        // Arrange
+        $user = User::factory()->create();
+        
+        // Act
+        $response = $this->getJson("/api/users/{$user->id}");
+        
+        // Assert
+        $response->assertStatus(200)
+            ->assertJson([
+                'data' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email
+                ]
+            ]);
+    }
+}
+```
+
+## Security Best Practices
+
+### Input Validation and Sanitization
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Security;
+
+use App\Exception\ValidationException;
+
+// ✅ Good - Input validator with comprehensive checks
+final class InputValidator
+{
+    private const MAX_STRING_LENGTH = 1000;
+    private const EMAIL_REGEX = '/^[^\s@]+@[^\s@]+\.[^\s@]+$/';
+    
+    public function validateEmail(string $email): string
+    {
+        $email = $this->sanitizeString($email);
+        
+        if (empty($email)) {
+            throw new ValidationException('Email cannot be empty');
+        }
+        
+        if (strlen($email) > 254) {
+            throw new ValidationException('Email is too long');
+        }
+        
+        if (!preg_match(self::EMAIL_REGEX, $email)) {
+            throw new ValidationException('Invalid email format');
+        }
+        
+        return $email;
+    }
+    
+    public function validatePassword(string $password): string
+    {
+        if (strlen($password) < 8) {
+            throw new ValidationException('Password must be at least 8 characters long');
+        }
+        
+        if (!preg_match('/[A-Z]/', $password)) {
+            throw new ValidationException('Password must contain at least one uppercase letter');
+        }
+        
+        if (!preg_match('/[a-z]/', $password)) {
+            throw new ValidationException('Password must contain at least one lowercase letter');
+        }
+        
+        if (!preg_match('/\d/', $password)) {
+            throw new ValidationException('Password must contain at least one digit');
+        }
+        
+        return $password;
+    }
+    
+    public function sanitizeString(string $input, int $maxLength = self::MAX_STRING_LENGTH): string
+    {
+        // Remove null bytes and control characters
+        $sanitized = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $input);
+        
+        // Trim whitespace
+        $sanitized = trim($sanitized);
+        
+        // Limit length
+        if (strlen($sanitized) > $maxLength) {
+            $sanitized = substr($sanitized, 0, $maxLength);
+        }
+        
+        return $sanitized;
+    }
+    
+    public function validateAndSanitizeHtml(string $html): string
+    {
+        // Use HTMLPurifier or similar library for HTML sanitization
+        $config = HTMLPurifier_Config::createDefault();
+        $config->set('HTML.Allowed', 'p,b,strong,i,em,u,a[href],ul,ol,li');
+        
+        $purifier = new HTMLPurifier($config);
+        return $purifier->purify($html);
+    }
+}
+
+// ✅ Good - CSRF protection
+final class CsrfProtection
+{
+    private const TOKEN_LENGTH = 32;
+    
+    public function generateToken(): string
+    {
+        return bin2hex(random_bytes(self::TOKEN_LENGTH));
+    }
+    
+    public function validateToken(string $token, string $sessionToken): bool
+    {
+        if (empty($token) || empty($sessionToken)) {
+            return false;
+        }
+        
+        return hash_equals($sessionToken, $token);
+    }
+}
+
+// ✅ Good - SQL injection prevention
+final class DatabaseSecurity
+{
+    public function __construct(
+        private readonly PDO $pdo
+    ) {}
+    
+    public function findUserByEmail(string $email): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT * FROM users WHERE email = :email');
+        $stmt->bindParam(':email', $email, PDO::PARAM_STR);
+        $stmt->execute();
+        
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $result ?: null;
+    }
+    
+    public function createUser(array $userData): bool
+    {
+        $stmt = $this->pdo->prepare(
+            'INSERT INTO users (id, name, email, password, created_at) VALUES (:id, :name, :email, :password, :created_at)'
+        );
+        
+        return $stmt->execute([
+            ':id' => $userData['id'],
+            ':name' => $userData['name'],
+            ':email' => $userData['email'],
+            ':password' => $userData['password'],
+            ':created_at' => $userData['created_at']
+        ]);
+    }
+}
+```
+
+## Performance Optimization
+
+### Caching and Optimization
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Service;
+
+use Psr\Cache\CacheItemPoolInterface;
+use Psr\Log\LoggerInterface;
+
+// ✅ Good - Caching service with proper implementation
+final class CacheService
+{
+    private const DEFAULT_TTL = 3600; // 1 hour
+    
+    public function __construct(
+        private readonly CacheItemPoolInterface $cache,
+        private readonly LoggerInterface $logger
+    ) {}
+    
+    public function get(string $key, callable $callback, int $ttl = self::DEFAULT_TTL): mixed
+    {
+        $item = $this->cache->getItem($key);
+        
+        if ($item->isHit()) {
+            $this->logger->debug('Cache hit', ['key' => $key]);
+            return $item->get();
+        }
+        
+        $this->logger->debug('Cache miss', ['key' => $key]);
+        
+        $value = $callback();
+        
+        $item->set($value);
+        $item->expiresAfter($ttl);
+        
+        $this->cache->save($item);
+        
+        return $value;
+    }
+    
+    public function invalidate(string $key): void
+    {
+        $this->cache->deleteItem($key);
+        $this->logger->debug('Cache invalidated', ['key' => $key]);
+    }
+    
+    public function invalidateByPattern(string $pattern): void
+    {
+        // Implementation depends on cache backend
+        $this->cache->deleteItems($this->getKeysByPattern($pattern));
+        $this->logger->debug('Cache invalidated by pattern', ['pattern' => $pattern]);
+    }
+    
+    private function getKeysByPattern(string $pattern): array
+    {
+        // This would need to be implemented based on your cache backend
+        // Redis example: KEYS pattern
+        // Memcached doesn't support pattern matching natively
+        return [];
+    }
+}
+
+// ✅ Good - Database query optimization
+final class OptimizedUserRepository
+{
+    public function __construct(
+        private readonly PDO $pdo,
+        private readonly CacheService $cache
+    ) {}
+    
+    public function findActiveUsersWithPosts(int $limit = 10, int $offset = 0): array
+    {
+        $cacheKey = "active_users_with_posts_{$limit}_{$offset}";
+        
+        return $this->cache->get($cacheKey, function () use ($limit, $offset) {
+            $sql = '
+                SELECT 
+                    u.id, u.name, u.email, u.created_at,
+                    COUNT(p.id) as post_count
+                FROM users u
+                LEFT JOIN posts p ON u.id = p.user_id
+                WHERE u.status = :status
+                GROUP BY u.id, u.name, u.email, u.created_at
+                ORDER BY u.created_at DESC
+                LIMIT :limit OFFSET :offset
+            ';
+            
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->bindValue(':status', 'active', PDO::PARAM_STR);
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+            $stmt->execute();
+            
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }, 300); // Cache for 5 minutes
+    }
+    
+    public function getUserStats(string $userId): array
+    {
+        $cacheKey = "user_stats_{$userId}";
+        
+        return $this->cache->get($cacheKey, function () use ($userId) {
+            $sql = '
+                SELECT 
+                    (SELECT COUNT(*) FROM posts WHERE user_id = :user_id) as post_count,
+                    (SELECT COUNT(*) FROM comments WHERE user_id = :user_id) as comment_count,
+                    (SELECT COUNT(*) FROM likes WHERE user_id = :user_id) as like_count
+            ';
+            
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->bindValue(':user_id', $userId, PDO::PARAM_STR);
+            $stmt->execute();
+            
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        }, 1800); // Cache for 30 minutes
+    }
+}
+```
+
+## Project Structure
+```
+src/
+├── Controller/          # HTTP controllers
+├── Entity/             # Data entities/models
+├── Repository/         # Data access layer
+├── Service/            # Business logic
+├── Security/           # Security-related classes
+├── Exception/          # Custom exceptions
+├── Validator/          # Input validation
+├── EventListener/      # Event listeners
+├── Command/            # Console commands
+└── Utils/              # Utility classes
+
+config/                 # Configuration files
+templates/              # View templates
+public/                 # Public web assets
+tests/                  # Test files
+migrations/             # Database migrations
+```
+
+## Documentation
+- Use comprehensive PHPDoc comments for all public methods
+- Include parameter and return type documentation
+- Provide usage examples in class-level documentation
+- Document complex business logic and algorithms
+- Maintain README with setup and deployment instructions
+- Follow PSR-5 PHPDoc standard for documentation

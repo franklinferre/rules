@@ -1,0 +1,164 @@
+
+---
+description: "TypeScript development rules with strict typing and modern patterns"
+globs: ["**/*.ts", "**/*.tsx", "**/*.d.ts"]
+alwaysApply: false
+---
+
+# TypeScript Development Rules
+
+## Core Principles
+- **Type Safety First**: Never use `any`, prefer `unknown` and proper type narrowing
+- **Strict Mode**: Always enable strict mode in tsconfig.json
+- **Functional Programming**: Prefer immutable patterns and pure functions
+- **Explicit Types**: Use explicit return types for functions and clear interfaces
+
+## Type System Best Practices
+
+### Type Definitions
+```typescript
+// ✅ Good - Explicit and descriptive
+interface UserProfile {
+  readonly id: string;
+  readonly email: string;
+  readonly preferences: UserPreferences;
+}
+
+// ❌ Avoid - Using any
+function processData(data: any): any {
+  return data;
+}
+
+// ✅ Good - Proper type narrowing
+function processData<T>(data: T): ProcessedData<T> {
+  return transformData(data);
+}
+```
+
+### Utility Types Usage
+- Use `Partial<T>` for optional updates
+- Use `Pick<T, K>` and `Omit<T, K>` for type composition
+- Use `Record<K, V>` for key-value mappings
+- Prefer `unknown` over `any` for dynamic content
+
+### Error Handling
+```typescript
+// ✅ Good - Result pattern
+type Result<T, E = Error> = 
+  | { success: true; data: T }
+  | { success: false; error: E };
+
+async function fetchUser(id: string): Promise<Result<User>> {
+  try {
+    const user = await userService.getById(id);
+    return { success: true, data: user };
+  } catch (error) {
+    return { success: false, error: error as Error };
+  }
+}
+```
+
+## Framework Integration
+
+### React + TypeScript
+- Use `React.FC<Props>` for functional components
+- Define props interfaces explicitly
+- Use `useCallback` and `useMemo` with proper dependencies
+- Implement proper event handler typing
+
+### Next.js + TypeScript
+- Use `GetServerSideProps` and `GetStaticProps` with proper typing
+- Implement API routes with typed request/response
+- Use `next/dynamic` for code splitting with loading states
+
+### Node.js + TypeScript
+- Use `@types/node` for Node.js types
+- Implement proper middleware typing for Express
+- Use environment variable validation with Zod
+
+## Code Organization
+
+### File Structure
+```
+src/
+├── types/           # Global type definitions
+├── interfaces/      # Shared interfaces
+├── utils/          # Utility functions with types
+├── services/       # Business logic with proper typing
+└── components/     # React components with props interfaces
+```
+
+### Import/Export Patterns
+```typescript
+// ✅ Good - Named exports with types
+export type { UserProfile, UserPreferences };
+export { UserService, createUser };
+
+// ✅ Good - Barrel exports
+export * from './types';
+export * from './services';
+```
+
+## Validation and Schema
+
+### Zod Integration
+```typescript
+import { z } from 'zod';
+
+const UserSchema = z.object({
+  id: z.string().uuid(),
+  email: z.string().email(),
+  age: z.number().min(0).max(120),
+});
+
+type User = z.infer<typeof UserSchema>;
+
+// Runtime validation
+function validateUser(data: unknown): User {
+  return UserSchema.parse(data);
+}
+```
+
+## Performance Considerations
+- Use `const assertions` for immutable data
+- Implement proper tree-shaking with ES modules
+- Use `satisfies` operator for type checking without widening
+- Avoid deep nesting in type definitions
+
+## Testing
+- Use `jest` with `@types/jest` for testing
+- Implement proper mocking with typed interfaces
+- Use `vitest` for faster test execution
+- Write integration tests with proper type coverage
+
+## Documentation
+- Use JSDoc comments for public APIs
+- Document complex type transformations
+- Provide usage examples in type definitions
+- Maintain README with TypeScript setup instructions
+
+## Security
+- Validate all external inputs with Zod schemas
+- Use branded types for sensitive data (IDs, tokens)
+- Implement proper CSRF protection in web apps
+- Never expose internal types in public APIs
+
+## Supabase Integration
+```typescript
+// Database types generation
+import { Database } from './types/supabase';
+
+type Tables = Database['public']['Tables'];
+type UserRow = Tables['users']['Row'];
+type UserInsert = Tables['users']['Insert'];
+type UserUpdate = Tables['users']['Update'];
+
+// Typed Supabase client
+const supabase = createClient<Database>(url, key);
+```
+
+## Migration Guidelines
+- Gradually migrate JavaScript files to TypeScript
+- Start with `.d.ts` files for external libraries
+- Use `@ts-check` in JavaScript files during transition
+- Implement strict null checks incrementally
