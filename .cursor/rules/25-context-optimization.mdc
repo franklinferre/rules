@@ -1,0 +1,463 @@
+
+
+---
+description: Context and indexing optimization for Cursor IDE - ignore files, reference strategies, and token management
+globs:
+  - "**/.cursorignore"
+  - "**/.cursorindexignore"
+  - "**/.gitignore"
+alwaysApply: false
+---
+
+# Context Optimization & Indexing
+
+## Ignore Files Strategy
+
+### .cursorignore (Complete Exclusion)
+Files completely invisible to Cursor - cannot be indexed or referenced
+
+```gitignore
+# Build artifacts and dependencies
+**/dist/
+**/build/
+**/.next/
+**/node_modules/
+**/venv/
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+
+# Logs and temporary files
+**/*.log
+**/.cache/
+**/.tmp/
+**/tmp/
+**/.DS_Store
+**/Thumbs.db
+
+# Large data files
+**/*.csv
+**/*.json
+**/*.xml
+**/data/
+**/uploads/
+**/downloads/
+
+# Media files
+**/*.jpg
+**/*.jpeg
+**/*.png
+**/*.gif
+**/*.mp4
+**/*.avi
+**/*.pdf
+**/*.zip
+**/*.tar.gz
+
+# IDE and editor files
+**/.vscode/
+**/.idea/
+**/*.swp
+**/*.swo
+**/*~
+
+# OS generated files
+**/.DS_Store
+**/desktop.ini
+**/*.lnk
+
+# Secrets and sensitive data
+**/.env
+**/.env.*
+**/*.key
+**/*.pem
+**/*.p12
+**/*.pfx
+**/secrets/
+**/credentials/
+**/*secret*
+**/*password*
+**/*token*
+
+# Database files
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+
+# Compiled binaries
+**/*.exe
+**/*.dll
+**/*.so
+**/*.dylib
+
+# Package files
+**/*.deb
+**/*.rpm
+**/*.msi
+**/*.dmg
+```
+
+### .cursorindexignore (On-Demand Access)
+Files not indexed automatically but available via @references
+
+```gitignore
+# Documentation (reference when needed)
+docs/
+documentation/
+**/README_*.md
+**/CHANGELOG_*.md
+
+# Design and specifications
+design/
+specs/
+wireframes/
+mockups/
+
+# Legacy and archived code
+legacy/
+archived/
+deprecated/
+old/
+backup/
+
+# Large configuration files
+config/large_config.json
+config/generated_config.yaml
+**/webpack.config.js
+**/rollup.config.js
+
+# Test fixtures and mock data
+**/fixtures/
+**/mocks/
+**/test-data/
+**/__fixtures__/
+
+# Generated documentation
+**/api-docs/
+**/coverage/
+**/docs/build/
+
+# Vendor and third-party
+vendor/
+third-party/
+external/
+
+# Localization files (unless actively working on i18n)
+**/locales/
+**/translations/
+**/*.po
+**/*.pot
+
+# Migration files (reference when needed)
+**/migrations/
+**/db/migrate/
+
+# Scripts and utilities (reference when needed)
+scripts/
+utils/
+tools/
+bin/
+```
+
+### Project-Specific Ignore Patterns
+
+#### Frontend Projects
+```gitignore
+# .cursorignore
+**/node_modules/
+**/.next/
+**/dist/
+**/build/
+**/*.bundle.js
+**/*.chunk.js
+**/coverage/
+
+# .cursorindexignore
+**/storybook-static/
+**/*.stories.js
+**/*.stories.ts
+**/public/assets/
+**/src/assets/images/
+```
+
+#### Backend Projects
+```gitignore
+# .cursorignore
+**/venv/
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/instance/
+**/*.db
+
+# .cursorindexignore
+**/migrations/
+**/fixtures/
+**/scripts/
+**/docs/api/
+```
+
+#### Full-Stack Projects
+```gitignore
+# .cursorignore
+# Frontend
+**/node_modules/
+**/.next/
+**/dist/
+
+# Backend
+**/venv/
+**/__pycache__/
+
+# Database
+**/*.db
+**/*.sqlite
+
+# .cursorindexignore
+# Documentation
+docs/
+**/README_*.md
+
+# Configuration
+**/config/environments/
+**/docker/
+```
+
+## Reference Optimization Strategies
+
+### Smart File Referencing
+
+#### Prefer Specific Over General
+```
+❌ @large_file.py (entire file)
+✅ @large_file.py#SpecificClass
+✅ @large_file.py:50-100
+✅ Highlight code → Add to Chat (Ctrl+Shift+L)
+```
+
+#### Context Layering
+```
+# Layer 1: Core context (always include)
+@PRD.md @core-rules.mdc
+
+# Layer 2: Domain context (for business logic)
+@models.py @services/
+
+# Layer 3: Implementation context (for specific features)
+@controllers/user_controller.py @tests/test_user.py
+
+# Layer 4: Runtime context (for debugging)
+@terminal @logs/error.log
+```
+
+#### Progressive Context Building
+```
+# Start with high-level context
+"Analyze the project structure: @PRD.md @architecture.md"
+
+# Then focus on specific components
+"Now examine the user management: @models/user.py @services/user_service.py"
+
+# Finally, implementation details
+"Implement the feature using: @controllers/user_controller.py @tests/test_user.py"
+```
+
+### Reference Patterns by Task Type
+
+#### Feature Development
+```
+PLANNING PHASE:
+@PRD.md @architecture.md @current-feature-branch
+
+DESIGN PHASE:
+@models/ @interfaces/ @existing-similar-feature.py
+
+IMPLEMENTATION PHASE:
+@target-files @related-tests @configuration
+
+TESTING PHASE:
+@test-files @test-data @terminal
+```
+
+#### Bug Fixing
+```
+INVESTIGATION:
+@error-logs @terminal @failing-test
+
+ANALYSIS:
+@problematic-file @related-components @recent-changes
+
+FIXING:
+@target-file @test-file @configuration
+
+VERIFICATION:
+@terminal @test-results @integration-tests
+```
+
+#### Refactoring
+```
+ASSESSMENT:
+@target-component @dependent-files @test-coverage
+
+PLANNING:
+@architecture-docs @design-patterns @similar-refactors
+
+EXECUTION:
+@files-to-change @tests-to-update @migration-scripts
+
+VALIDATION:
+@all-tests @performance-benchmarks @integration-checks
+```
+
+## Token Management
+
+### Token Budget Allocation
+```
+TOTAL CONTEXT BUDGET: 100K tokens (example)
+
+ALLOCATION:
+- Core rules and standards: 10K tokens (10%)
+- Project documentation: 15K tokens (15%)
+- Current task context: 40K tokens (40%)
+- Code implementation: 25K tokens (25%)
+- Runtime/debug info: 10K tokens (10%)
+```
+
+### Context Size Monitoring
+```
+# Check context usage in Cursor
+View → Command Palette → "Cursor: Show Context"
+
+# Optimize when approaching limits:
+1. Remove unnecessary @references
+2. Use more specific file ranges
+3. Move large docs to .cursorindexignore
+4. Reference only relevant sections
+```
+
+### Efficient Context Patterns
+
+#### Batch Related References
+```
+# Instead of multiple separate references
+❌ @file1.py @file2.py @file3.py @file4.py
+
+# Group related files
+✅ @models/ @services/user* @tests/user*
+```
+
+#### Use Symbolic References
+```
+# Instead of full file content
+❌ @large-config.json
+
+# Reference specific sections
+✅ @large-config.json#database-section
+✅ "Use the database configuration from @large-config.json"
+```
+
+#### Temporal Context Management
+```
+# For long conversations, periodically reset context
+"Let's start fresh. Current task: [SUMMARY]
+Key context: @essential-files
+Previous decisions: [BRIEF-SUMMARY]"
+```
+
+## Performance Optimization
+
+### Indexing Performance
+
+#### Exclude Performance Killers
+```
+# Large generated files
+**/package-lock.json
+**/yarn.lock
+**/Pipfile.lock
+**/poetry.lock
+
+# Minified files
+**/*.min.js
+**/*.min.css
+**/bundle.js
+
+# Large data files
+**/*.csv
+**/*.json (if > 1MB)
+**/*.xml (if > 1MB)
+```
+
+#### Monitor Index Size
+```bash
+# Check .cursor directory size
+du -sh .cursor/
+
+# If too large (>100MB), review ignore files
+# Add more patterns to .cursorignore
+```
+
+### Response Time Optimization
+
+#### Reduce Context Switching
+```
+# Keep related files together in references
+✅ @user-model.py @user-service.py @user-controller.py
+
+# Avoid jumping between unrelated contexts
+❌ @user-model.py @payment-service.py @email-template.html
+```
+
+#### Use Focused Sessions
+```
+# Dedicate sessions to specific areas
+SESSION 1: User management (@user-related-files)
+SESSION 2: Payment processing (@payment-related-files)
+SESSION 3: Email system (@email-related-files)
+```
+
+## Context Validation
+
+### Regular Context Audits
+
+#### Monthly Review Checklist
+- [ ] Review .cursorignore effectiveness
+- [ ] Check for new large files to exclude
+- [ ] Validate .cursorindexignore patterns
+- [ ] Test reference patterns efficiency
+- [ ] Monitor token usage trends
+
+#### Context Quality Metrics
+```
+RELEVANCE SCORE: % of referenced content actually used
+TARGET: >80% relevance in responses
+
+EFFICIENCY SCORE: Response quality / tokens used
+TARGET: Maintain quality with minimal tokens
+
+ACCURACY SCORE: % of responses requiring minimal iteration
+TARGET: >90% accuracy on first attempt
+```
+
+### Troubleshooting Context Issues
+
+#### Common Problems and Solutions
+
+**Problem**: Responses are generic/irrelevant
+**Solution**: Add more specific @references, check ignore files
+
+**Problem**: Token limit exceeded
+**Solution**: Use .cursorindexignore, reference specific sections
+
+**Problem**: Slow response times
+**Solution**: Reduce context size, exclude large files
+
+**Problem**: Inconsistent code style
+**Solution**: Ensure style guides are in always-apply rules
+
+**Problem**: Missing important context
+**Solution**: Review .cursorindexignore, add key files to index
+
+@ref:cursor-best-practices#smart-indexing
+@ref:core-guardrails#token-economy
+@ref:prompt-engineering#context-management
+

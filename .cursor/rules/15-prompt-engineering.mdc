@@ -1,0 +1,368 @@
+
+
+---
+description: Advanced prompt engineering techniques for Cursor IDE - detailed specifications, context management, and iterative improvement
+globs:
+  - "**/*.md"
+  - "**/instructions.*"
+  - "**/PRD.*"
+alwaysApply: false
+---
+
+# Prompt Engineering Excellence
+
+## Detailed Prompt Construction
+
+### The OSCAR Framework
+**O**bjective - **S**pecification - **C**ontext - **A**cceptance - **R**eferences
+
+```markdown
+OBJECTIVE: Implement user authentication system
+
+SPECIFICATION:
+- Use JWT tokens with 24h expiration
+- FastAPI OAuth2PasswordBearer for security
+- Include /login, /logout, /refresh endpoints
+- Hash passwords with bcrypt
+- Store user sessions in Redis
+
+CONTEXT: @auth.py @models.py @config.py
+
+ACCEPTANCE CRITERIA:
+- All endpoints return proper HTTP status codes
+- Passwords never stored in plain text
+- JWT tokens include user_id and role claims
+- Rate limiting on login attempts (5/minute)
+- Comprehensive error messages
+
+REFERENCES: @docs/auth-requirements.md
+```
+
+### Prompt Patterns Library
+
+#### Feature Implementation
+```
+Implement [FEATURE_NAME] with the following requirements:
+
+FUNCTIONAL:
+- [Requirement 1]
+- [Requirement 2]
+- [Requirement 3]
+
+NON-FUNCTIONAL:
+- Performance: [metrics]
+- Security: [requirements]
+- Usability: [standards]
+
+TECHNICAL CONSTRAINTS:
+- Use [technology/library]
+- Follow [pattern/architecture]
+- Integrate with [existing systems]
+
+FILES TO MODIFY:
+- [file1.py] - [what changes]
+- [file2.py] - [what changes]
+
+TESTS REQUIRED:
+- Unit tests for [components]
+- Integration tests for [workflows]
+- Edge cases: [scenarios]
+```
+
+#### Bug Fix Pattern
+```
+Fix the bug in [COMPONENT/FUNCTION]:
+
+PROBLEM DESCRIPTION:
+- Current behavior: [what happens]
+- Expected behavior: [what should happen]
+- Error message: @terminal
+
+ROOT CAUSE ANALYSIS:
+- Investigate [potential causes]
+- Check [related components]
+- Verify [assumptions]
+
+SOLUTION REQUIREMENTS:
+- Maintain backward compatibility
+- Add defensive programming
+- Include regression tests
+- Update documentation if needed
+
+CONTEXT: @file1.py @file2.py @error-logs.txt
+```
+
+#### Refactoring Pattern
+```
+Refactor [COMPONENT] to improve [QUALITY_ATTRIBUTE]:
+
+CURRENT STATE:
+- [Description of current implementation]
+- [Identified issues/smells]
+
+TARGET STATE:
+- [Desired architecture/pattern]
+- [Quality improvements expected]
+
+CONSTRAINTS:
+- No breaking changes to public API
+- Maintain existing functionality
+- Preserve performance characteristics
+- Keep test coverage above 80%
+
+APPROACH:
+1. [Step 1]
+2. [Step 2]
+3. [Step 3]
+
+VALIDATION:
+- All existing tests pass
+- New tests for refactored code
+- Performance benchmarks maintained
+```
+
+## Context Management Strategies
+
+### Progressive Context Building
+```
+# Phase 1: High-level understanding
+@PRD.md @architecture.md
+
+# Phase 2: Specific component focus
+@models.py @services/user_service.py
+
+# Phase 3: Implementation details
+@tests/test_user_service.py @config/database.py
+```
+
+### Context Layering Technique
+```
+LAYER 1 (Always): @core-rules @project-standards
+LAYER 2 (Domain): @domain-models @business-rules
+LAYER 3 (Technical): @implementation-files @test-files
+LAYER 4 (Runtime): @terminal @logs @error-traces
+```
+
+### Smart File Referencing
+```
+# Instead of referencing entire large files
+❌ @large_file.py
+
+# Reference specific functions or classes
+✅ @large_file.py#SpecificClass
+✅ @large_file.py:50-100  # Line range
+✅ Highlight specific code → Add to Chat
+```
+
+## Iterative Refinement Techniques
+
+### The 3-Pass Method
+
+#### Pass 1: Structure and Logic
+```
+Focus on:
+- Overall architecture correctness
+- Business logic implementation
+- Data flow and dependencies
+- Error handling strategy
+
+Ignore:
+- Code style details
+- Performance optimizations
+- Documentation completeness
+```
+
+#### Pass 2: Quality and Standards
+```
+Focus on:
+- Code style and conventions
+- Security best practices
+- Performance considerations
+- Test coverage and quality
+
+Refine:
+- Variable naming
+- Function decomposition
+- Resource management
+```
+
+#### Pass 3: Polish and Documentation
+```
+Focus on:
+- Documentation completeness
+- Code comments and clarity
+- User experience details
+- Edge case handling
+
+Finalize:
+- README updates
+- API documentation
+- Deployment instructions
+```
+
+### Feedback Loop Optimization
+
+#### Immediate Feedback
+```
+After each AI response:
+1. Quick scan for obvious issues
+2. Test core functionality
+3. Check against acceptance criteria
+4. Note any deviations or improvements needed
+```
+
+#### Structured Review
+```
+FUNCTIONALITY: ✅/❌
+- Does it work as specified?
+- Are edge cases handled?
+- Is error handling appropriate?
+
+QUALITY: ✅/❌
+- Follows coding standards?
+- Includes proper tests?
+- Has adequate logging?
+
+INTEGRATION: ✅/❌
+- Fits with existing codebase?
+- Maintains API contracts?
+- No breaking changes?
+```
+
+#### Refinement Prompts
+```
+# For functionality issues
+"The implementation works but doesn't handle [EDGE_CASE]. Please add validation for [SCENARIO] and return appropriate error messages."
+
+# For quality issues
+"The code is functional but doesn't follow our naming conventions. Please refactor to use [CONVENTION] and add docstrings following Google style."
+
+# For integration issues
+"The new code breaks the existing API contract. Please modify to maintain backward compatibility while adding the new functionality."
+```
+
+## Advanced Prompt Techniques
+
+### Constraint-Based Prompting
+```
+Implement [FEATURE] with HARD CONSTRAINTS:
+- MUST use existing database schema (no migrations)
+- MUST maintain response time < 200ms
+- MUST be backward compatible with v1.0 API
+- MUST NOT introduce new dependencies
+
+And SOFT PREFERENCES:
+- PREFER functional programming patterns
+- PREFER explicit over implicit behavior
+- PREFER composition over inheritance
+```
+
+### Example-Driven Development
+```
+Implement user search functionality following this pattern:
+
+EXISTING PATTERN (from @user_controller.py):
+```python
+@app.get("/users/{user_id}")
+async def get_user(user_id: int, db: Session = Depends(get_db)):
+    user = await user_service.get_by_id(user_id, db)
+    if not user:
+        raise HTTPException(404, "User not found")
+    return UserResponse.from_orm(user)
+```
+
+NEW ENDPOINT should follow same:
+- Async pattern
+- Dependency injection
+- Error handling style
+- Response model usage
+```
+
+### Specification by Negation
+```
+Implement authentication middleware that:
+
+MUST DO:
+- Validate JWT tokens
+- Extract user information
+- Handle token expiration
+
+MUST NOT DO:
+- Store passwords in plain text
+- Log sensitive information
+- Allow SQL injection
+- Bypass rate limiting
+- Use deprecated crypto functions
+```
+
+### Progressive Disclosure
+```
+# Start simple
+"Create a basic user registration endpoint"
+
+# Add complexity iteratively
+"Now add email validation to the registration"
+"Add password strength requirements"
+"Add duplicate email checking"
+"Add email confirmation workflow"
+```
+
+## Prompt Quality Metrics
+
+### Clarity Score (1-10)
+- **10**: Unambiguous, specific, actionable
+- **7-9**: Clear with minor interpretation needed
+- **4-6**: Somewhat vague, multiple interpretations
+- **1-3**: Confusing, requires significant clarification
+
+### Context Completeness (1-10)
+- **10**: All necessary context provided
+- **7-9**: Most context available, minor gaps
+- **4-6**: Some important context missing
+- **1-3**: Insufficient context for accurate response
+
+### Specificity Level (1-10)
+- **10**: Exact requirements, no assumptions needed
+- **7-9**: Detailed with minor gaps
+- **4-6**: General direction with some specifics
+- **1-3**: High-level only, many assumptions required
+
+### Target Quality Thresholds
+- **Production code**: Clarity ≥ 8, Context ≥ 8, Specificity ≥ 7
+- **Prototyping**: Clarity ≥ 6, Context ≥ 6, Specificity ≥ 5
+- **Exploration**: Clarity ≥ 5, Context ≥ 4, Specificity ≥ 4
+
+## Common Anti-Patterns
+
+### Vague Requests
+❌ "Make it better"
+❌ "Fix the bug"
+❌ "Add some tests"
+❌ "Optimize performance"
+
+✅ "Improve response time of user search from 2s to <500ms by adding database indexes"
+✅ "Fix the null pointer exception in user_service.py line 45 when email is empty"
+✅ "Add unit tests for UserService.create() covering success, validation errors, and duplicate email scenarios"
+
+### Context Overload
+❌ Referencing 20+ files at once
+❌ Including entire large configuration files
+❌ Adding irrelevant historical context
+
+✅ Reference only files directly related to the task
+✅ Use specific line ranges or functions
+✅ Include only relevant historical context
+
+### Assumption Gaps
+❌ Not specifying error handling requirements
+❌ Omitting performance expectations
+❌ Leaving integration points undefined
+
+✅ Explicitly state error handling strategy
+✅ Define performance requirements
+✅ Specify how new code integrates with existing systems
+
+@ref:cursor-best-practices#detailed-prompts
+@ref:core-guardrails#assumption-handling
+@ref:io-contracts#acceptance-criteria
+

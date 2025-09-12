@@ -1,0 +1,136 @@
+
+---
+description: Testing strategy and coverage requirements (unit/integration/e2e)
+globs:
+  - "**/tests/**"
+  - "**/*.spec.*"
+  - "**/*.test.*"
+  - "**/cypress/**"
+  - "**/playwright/**"
+alwaysApply: false
+---
+
+# Testing Strategy
+
+## Coverage Requirements
+- **Unit Tests**: ≥ 80% coverage (target 90%)
+- **Integration Tests**: Critical paths covered
+- **E2E Tests**: Main user flows only
+
+## Unit Tests
+
+### Structure & Naming
+- **Pattern**: AAA (Arrange, Act, Assert)
+- **Naming**: `should_expectedBehavior_when_condition`
+- **Organization**: Mirror source structure
+- **File naming**: `*.spec.ts` ou `*.test.py`
+
+### Best Practices
+- Um assert por teste quando possível
+- Testes independentes entre si
+- Setup/teardown mínimos
+- Nomes descritivos sem comentários
+- Mínimo 3 cenários: happy path, edge case, error case
+
+### Mocking Strategy
+- **External APIs**: Sempre mockar
+- **Database**: In-memory ou mock repositories
+- **Time**: Mockar Date/datetime para determinismo
+- **Random**: Seed fixo para reprodutibilidade
+
+## Integration Tests
+
+### Scope
+- Interação entre componentes
+- Contratos de API reais
+- Database com containers
+- Messaging com in-memory brokers
+
+### Environment
+- Isolado do desenvolvimento
+- Cleanup automático após cada teste
+- Fixtures determinísticas
+- Factories para geração dinâmica
+
+## E2E Tests
+
+### Critical Paths Only
+- User registration flow
+- Authentication flow
+- Main business transaction
+- Payment flow (se aplicável)
+
+### Tools & Configuration
+- **Web**: Playwright ou Cypress
+- **API**: pytest-bdd ou Postman/Newman
+- **Data**: Fixtures determinísticas
+- **Environment**: Dedicado para E2E
+- **Execution**: Sequencial (evitar paralelização)
+
+## Performance Tests
+
+### Types
+- **Load**: Expected load testing
+- **Stress**: Breaking point testing
+- **Spike**: Sudden load testing
+- **Endurance**: Sustained load testing
+
+### Tools & Metrics
+- **Tools**: k6, JMeter, Locust
+- **Metrics**: Response time percentiles, throughput, error rate, resource utilization
+- **Baseline**: Estabelecer antes de otimizar
+
+## Test Quality
+
+### Performance Targets
+- **Unit**: < 100ms per test
+- **Integration**: < 5s per test
+- **E2E**: < 30s per test
+
+### Flaky Tests Policy
+- Track em CI
+- Quarentena até fix
+- Common causes: timing, shared state, external deps
+
+### Assertions
+- Específicas e meaningful
+- Evitar assertions genéricas
+- Incluir mensagens de erro úteis
+
+## Framework-Specific
+
+### TypeScript/Jest/Vitest
+```typescript
+// Good
+describe('UserService', () => {
+  it('should create user when valid data provided', async () => {
+    // Arrange
+    const userData = { email: 'test@example.com', name: 'Test' };
+    
+    // Act
+    const result = await userService.create(userData);
+    
+    // Assert
+    expect(result.success).toBe(true);
+    expect(result.data.email).toBe(userData.email);
+  });
+});
+```
+
+### Python/pytest
+```python
+# Good
+def test_should_create_user_when_valid_data_provided():
+    # Arrange
+    user_data = {"email": "test@example.com", "name": "Test"}
+    
+    # Act
+    result = user_service.create(user_data)
+    
+    # Assert
+    assert result.success is True
+    assert result.data.email == user_data["email"]
+```
+
+@ref:gates-system#g3-coding
+@ref:core-guardrails#anti-desperdicio

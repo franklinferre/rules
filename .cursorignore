@@ -1,0 +1,71 @@
+
+# Logs / build / caches
+**/dist/
+**/build/
+**/.next/
+**/.cache/
+**/*.log
+**/node_modules/
+**/__pycache__/
+**/.pytest_cache/
+**/.coverage
+**/coverage/
+
+# Pesados e binários
+**/*.csv
+**/*.pdf
+**/*.jpg
+**/*.jpeg
+**/*.png
+**/*.gif
+**/*.mp4
+**/*.avi
+**/*.zip
+**/*.tar.gz
+**/*.rar
+
+# Segredos e configurações sensíveis
+**/.env
+**/.env.*
+!**/.env.example
+**/*secrets*.json
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+
+# Temporários e backups
+**/*.tmp
+**/*.temp
+**/*.bak
+**/*.swp
+**/*.swo
+**/*~
+
+# IDEs e editores
+**/.vscode/
+**/.idea/
+**/*.sublime-*
+**/.DS_Store
+**/Thumbs.db
+
+# Dependências e vendor
+**/vendor/
+**/.bundle/
+**/gems/
+
+# Documentação gerada
+**/docs/build/
+**/site/
+**/_site/
+
+# Testes e relatórios
+**/test-results/
+**/playwright-report/
+**/cypress/videos/
+**/cypress/screenshots/
+
+# Específicos do projeto
+**/migrations/
+**/static/
+**/media/

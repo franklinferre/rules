@@ -1,0 +1,192 @@
+
+---
+description: Template for DevOps and infrastructure rules
+globs:
+  - "**/docker/**"
+  - "**/k8s/**"
+  - "**/terraform/**"
+  - "**/ansible/**"
+  - "**/.github/workflows/**"
+  - "**/gitlab-ci.yml"
+alwaysApply: false
+---
+
+# {DEVOPS_TOOL} Standards Template
+
+## Infrastructure as Code
+
+### {TOOL_CATEGORY}
+- **Tool**: Primary tool (Terraform, Ansible, etc.)
+- **Structure**: Directory and file organization
+- **Standards**: Coding standards and conventions
+
+### Configuration Management
+- **Approach**: Configuration management strategy
+- **Tools**: Tools used for configuration
+- **Validation**: How to validate configurations
+
+## Containerization
+
+### Docker Standards
+- **Base Images**: Approved base images
+- **Multi-stage**: Multi-stage build requirements
+- **Security**: Security hardening practices
+- **Optimization**: Size and performance optimization
+
+### Container Orchestration
+- **Platform**: Kubernetes, Docker Swarm, etc.
+- **Patterns**: Deployment patterns
+- **Configuration**: Configuration management
+
+## CI/CD Pipeline
+
+### Pipeline Structure
+```yaml
+# Example pipeline configuration
+stages:
+  - validate
+  - test
+  - build
+  - deploy
+```
+
+### Quality Gates
+- **Gate 1**: Description and criteria
+- **Gate 2**: Description and criteria
+- **Gate 3**: Description and criteria
+
+### Deployment Strategy
+- **Strategy**: Blue-green, rolling, canary, etc.
+- **Rollback**: Rollback procedures
+- **Monitoring**: Deployment monitoring
+
+## Security
+
+### Secrets Management
+- **Strategy**: How to manage secrets
+- **Tools**: Secret management tools
+- **Rotation**: Secret rotation policies
+
+### Vulnerability Scanning
+- **Tools**: Scanning tools and frequency
+- **Policies**: Vulnerability handling policies
+- **Remediation**: Remediation procedures
+
+### Access Control
+- **Strategy**: Access control strategy
+- **Implementation**: How to implement access control
+- **Auditing**: Access auditing procedures
+
+## Monitoring & Observability
+
+### Metrics
+- **Infrastructure Metrics**: Key infrastructure metrics
+- **Application Metrics**: Key application metrics
+- **Business Metrics**: Key business metrics
+
+### Logging
+- **Strategy**: Centralized logging strategy
+- **Format**: Log format standards
+- **Retention**: Log retention policies
+
+### Alerting
+- **Strategy**: Alerting strategy
+- **Thresholds**: Alert thresholds
+- **Escalation**: Escalation procedures
+
+## Backup & Disaster Recovery
+
+### Backup Strategy
+- **Frequency**: Backup frequency
+- **Retention**: Backup retention policies
+- **Testing**: Backup testing procedures
+
+### Disaster Recovery
+- **RTO/RPO**: Recovery time and point objectives
+- **Procedures**: Disaster recovery procedures
+- **Testing**: DR testing schedule
+
+## Environment Management
+
+### Environment Strategy
+- **Environments**: Development, staging, production
+- **Promotion**: Code promotion strategy
+- **Configuration**: Environment-specific configuration
+
+### Resource Management
+- **Provisioning**: Resource provisioning strategy
+- **Scaling**: Auto-scaling policies
+- **Cost Optimization**: Cost optimization practices
+
+## Compliance & Governance
+
+### Compliance Requirements
+- **Standards**: Compliance standards (SOC2, PCI-DSS, etc.)
+- **Controls**: Required controls
+- **Auditing**: Audit procedures
+
+### Change Management
+- **Process**: Change management process
+- **Approval**: Change approval workflow
+- **Documentation**: Change documentation requirements
+
+## Anti-Patterns (Forbidden)
+
+### Infrastructure Anti-Patterns
+- ❌ Anti-pattern 1: Why it's bad and alternative
+- ❌ Anti-pattern 2: Why it's bad and alternative
+
+### Security Anti-Patterns
+- ❌ Anti-pattern 1: Why it's bad and alternative
+- ❌ Anti-pattern 2: Why it's bad and alternative
+
+### Deployment Anti-Patterns
+- ❌ Anti-pattern 1: Why it's bad and alternative
+- ❌ Anti-pattern 2: Why it's bad and alternative
+
+## Examples
+
+### Good Configuration
+```yaml
+# Example of good infrastructure configuration
+```
+
+### Bad Configuration
+```yaml
+# Example of what NOT to do
+```
+
+## Automation Scripts
+
+### Common Tasks
+```bash
+#!/bin/bash
+# Example automation script
+```
+
+### Validation Scripts
+```bash
+#!/bin/bash
+# Example validation script
+```
+
+## References
+
+- @ref:core-guardrails
+- @ref:security#infrastructure-security
+- @ref:docker-compose#security-hardening
+- @docs:{TOOL_DOCUMENTATION_URL}
+- @docs:{PLATFORM_DOCUMENTATION_URL}
+
+---
+
+## Template Usage Instructions
+
+1. **Choose DevOps tool**: Docker, Kubernetes, Terraform, etc.
+2. **Update globs**: File patterns for auto-attachment
+3. **Customize for tool**: Tool-specific requirements and patterns
+4. **Security focus**: Emphasize security best practices
+5. **Automation emphasis**: Include automation scripts and procedures
+6. **Compliance considerations**: Include relevant compliance requirements
+7. **Monitoring integration**: Include observability requirements
+8. **Environment strategy**: Define environment management approach

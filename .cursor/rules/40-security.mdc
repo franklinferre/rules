@@ -1,0 +1,134 @@
+
+---
+description: Security requirements and best practices (authentication, authorization, data protection)
+globs:
+alwaysApply: true
+---
+
+# Security Requirements
+
+## Authentication & Authorization
+
+### JWT Implementation
+- **Access Token**: Memory only, 15min expiry, rotate on refresh
+- **Refresh Token**: httpOnly secure sameSite cookie, 7 days, rotate on use
+- **MFA**: TOTP/SMS/email + 10 backup codes
+- **Sessions**: Max 3 concurrent, 30min idle, 8h absolute timeout
+
+### Authorization Pattern
+- **RBAC + ABAC**: Role-based + attribute-based hybrid
+- **Enforcement**: Middleware em todas as rotas
+- **Auditing**: Log all authorizations and denials
+- **Review**: Quarterly access review
+
+## Input Validation
+
+### Defense in Depth
+1. **Client**: Basic validation for UX
+2. **API**: Comprehensive validation
+3. **Database**: Constraints as last defense
+
+### Techniques
+- **Whitelist**: Accept known good only
+- **Sanitization**: Remove/escape dangerous content
+- **Length Limits**: Prevent DoS attacks
+- **Normalization**: Consistent format
+
+### Specific Threats
+- **SQL Injection**: Parameterized queries only
+- **XSS**: Context-aware output encoding
+- **XXE**: Disable external entity processing
+- **Path Traversal**: Canonicalize and validate paths
+- **Command Injection**: Avoid shell, use libraries
+
+## Data Protection
+
+### Encryption Standards
+- **At Rest**: AES-256-GCM with KMS
+- **In Transit**: TLS 1.3 minimum
+- **Application**: Field-level for PII
+- **Passwords**: bcrypt cost 12+
+
+### PII Handling
+- **Classification**: public|internal|confidential|restricted
+- **Processing**: Legal basis documented (LGPD/GDPR)
+- **Retention**: Automated deletion policies
+- **Rights**: Access, rectification, erasure, portability
+
+## API Security
+
+### Rate Limiting
+- **Global**: 1000 req/min per IP
+- **Authenticated**: 5000 req/min per user
+- **Sensitive**: 10 req/min (auth, payment)
+- **Implementation**: Redis sliding window
+
+### Security Headers
+```
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1; mode=block
+Referrer-Policy: strict-origin-when-cross-origin
+Content-Security-Policy: [defined per app]
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+```
+
+### CORS Configuration
+- **Origins**: Explicit whitelist only
+- **Credentials**: Only when necessary
+- **Methods**: Minimum required
+- **Headers**: Minimum required
+
+## Secrets Management
+
+### Storage
+- **Development**: .env with .gitignore
+- **Staging**: Sealed secrets or vault
+- **Production**: AWS Secrets Manager/Azure Key Vault
+
+### Rotation Schedule
+- **API Keys**: Quarterly
+- **Database Passwords**: Monthly
+- **Encryption Keys**: Annually
+- **Certificates**: Before expiry
+
+### Access Control
+- **Principle**: Least privilege
+- **Audit**: All access logged
+- **Break Glass**: Emergency access procedure
+
+## Security Scanning
+
+### Pre-commit
+- **Tools**: git-secrets, TruffleHog
+- **Scope**: Secrets detection
+- **Action**: Block commit if found
+
+### CI/CD Pipeline
+- **SAST**: Semgrep, CodeQL
+- **Dependencies**: Snyk, OWASP Dependency Check
+- **Containers**: Trivy, Clair
+- **Fail On**: High or critical vulnerabilities
+
+### Runtime
+- **Dynamic**: OWASP ZAP, Burp Suite
+- **Monitoring**: SIEM integration
+- **Response**: Automated alerting
+
+## Compliance
+
+### Logging Requirements
+- **Authentication**: All attempts with result
+- **Authorization**: All checks with context
+- **Data Access**: PII access with purpose
+- **Configuration**: All changes with diff
+- **Security Events**: All alerts with response
+
+### Audit Trail
+- **Format**: JSON with schema validation
+- **Integrity**: Hash chain or signed logs
+- **Retention**: 1-5 years based on event type
+- **Storage**: Hot/warm/cold tiers
+
+@ref:gates-system#g5-release
+@ref:core-guardrails#risk-alerts

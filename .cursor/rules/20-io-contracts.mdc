@@ -1,0 +1,128 @@
+
+---
+description: Mandatory I/O contracts for all operations (REQUEST/RESPONSE structure)
+globs:
+alwaysApply: false
+---
+
+# I/O Contracts Protocol
+
+Contratos obrigatórios REQUEST/RESPONSE para toda operação.
+
+## REQUEST Structure
+
+```json
+{
+  "id": "REQ-YYYY-MM-DD-XXX",
+  "version": "1.0.0",
+  "timestamp": "ISO-8601",
+  "requester": "human|system|agent",
+  "task_description": "descrição clara da tarefa",
+  "todo_reference": "TOD-YYYY-MM-DD-XXX#T1",
+  "current_gate": "G1|G2|G3|G4|G5",
+  "urgency": "low|normal|high|critical",
+  "constraints": {
+    "max_changes": {
+      "files": 5,
+      "lines_per_file": 200
+    },
+    "forbidden_operations": ["mass_refactor", "architecture_change"],
+    "deadline": "ISO-8601 timestamp opcional"
+  },
+  "acceptance_criteria": [
+    "critério verificável 1",
+    "critério verificável 2"
+  ],
+  "context_files": [
+    {
+      "path": "src/domain/user.ts",
+      "reason": "entidade principal afetada"
+    }
+  ],
+  "expected_artifacts": ["code", "test", "documentation"],
+  "rollback_strategy": "estratégia se falhar"
+}
+```
+
+## RESPONSE Structure
+
+```json
+{
+  "id": "REQ-YYYY-MM-DD-XXX",
+  "timestamp": "ISO-8601",
+  "responder": "agent|human",
+  "status": "ready_for_review|needs_input|risk_alert|completed|failed",
+  "confidence_level": "high|medium|low",
+  "artifacts_created": [
+    {
+      "type": "code|test|documentation|adr|diagram",
+      "file_path": "caminho do arquivo",
+      "description": "descrição da mudança",
+      "diff_summary": "resumo das alterações",
+      "breaking_change": false
+    }
+  ],
+  "tests_executed": {
+    "unit_tests": {
+      "ran": true,
+      "passed": 12,
+      "failed": 0,
+      "coverage": 0.85
+    },
+    "integration_tests": {
+      "ran": true,
+      "passed": 3,
+      "failed": 0
+    }
+  },
+  "quality_metrics": {
+    "linting_errors": 0,
+    "linting_warnings": 2,
+    "complexity_violations": 0,
+    "security_warnings": 0
+  },
+  "performance_impact": {
+    "expected_latency_change": "+5ms",
+    "memory_impact": "negligível",
+    "database_queries_added": 1
+  },
+  "sources_referenced": [
+    {
+      "type": "adr|documentation|code",
+      "reference": "ADR-001: Authentication Strategy",
+      "relevance": "defines auth pattern used"
+    }
+  ],
+  "next_gate": "G4",
+  "next_action": "aguardar review ou prosseguir para G4",
+  "recommendations": [
+    "considerar cache para query adicionada"
+  ],
+  "risks_identified": [
+    {
+      "risk": "possível race condition",
+      "severity": "low",
+      "mitigation": "adicionar lock otimista"
+    }
+  ],
+  "rollback_tested": true
+}
+```
+
+## Validation Rules
+
+- **Sources Required**: Para mudanças não-triviais, mínimo 1 fonte
+- **Breaking Changes**: Devem ser explicitamente marcadas
+- **Performance Impact**: Sempre documentar impacto esperado
+- **Rollback**: Sempre testar estratégia de rollback
+
+## Usage Examples
+
+### Manual Activation
+Use `@io-contracts` para ativar esta regra manualmente quando precisar de contratos estruturados.
+
+### Integration with Gates
+Contratos I/O são obrigatórios em todos os gates G1-G5.
+
+@ref:gates-system#g1-planning
+@ref:core-guardrails#anti-desperdicio

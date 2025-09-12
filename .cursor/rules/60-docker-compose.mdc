@@ -1,0 +1,391 @@
+
+---
+description: Docker and containerization standards with multi-stage builds and security hardening
+globs:
+  - "Dockerfile*"
+  - "**/docker/**"
+  - "**/docker-compose*.yml"
+  - "**/docker-compose*.yaml"
+alwaysApply: false
+---
+
+# Docker & Containerization Standards
+
+## Dockerfile Best Practices
+
+### Base Images
+- **Python**: `python:3.13-slim-bookworm`
+- **Node.js**: `node:22-alpine`
+- **Nginx**: `nginx:alpine`
+- **Approach**: Official images + slim/alpine variants
+
+### Multi-Stage Builds (Mandatory)
+```dockerfile
+# Dependencies stage
+FROM python:3.13-slim-bookworm AS dependencies
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Builder stage
+FROM dependencies AS builder
+COPY . .
+RUN python -m build
+
+# Runtime stage
+FROM python:3.13-slim-bookworm AS runtime
+WORKDIR /app
+
+# Create non-root user
+RUN useradd -r -u 1001 appuser
+
+# Copy only necessary files
+COPY --from=builder /app/dist/*.whl .
+RUN pip install --no-cache-dir *.whl && rm *.whl
+
+# Switch to non-root user
+USER 1001
+
+EXPOSE 8000
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+### Security Hardening
+- **User**: Never run as root in production
+- **Secrets**: Use `--secret` for build secrets, environment variables for runtime
+- **Scanning**: Trivy, Snyk, or Clair in CI/CD
+- **Updates**: Regular base image updates
+
+### Optimization
+- **Layer Caching**: Order from least to most frequently changing
+- **Size Reduction**: Combine RUN commands, clean package manager cache
+- **Dockerignore**: Effective `.dockerignore` file
+
+```dockerfile
+# .dockerignore
+node_modules
+npm-debug.log
+.git
+.gitignore
+README.md
+.env
+.nyc_output
+coverage
+.cache
+```
+
+## Docker Compose Structure
+
+### File Organization
+```yaml
+# docker-compose.yml (base configuration)
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://user:pass@db:5432/myapp
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: myapp
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d myapp"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  postgres_data:
+```
+
+### Environment Configuration
+```yaml
+# docker-compose.override.yml (development)
+version: '3.8'
+
+services:
+  app:
+    volumes:
+      - .:/app
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=debug
+    ports:
+      - "8000:8000"
+      - "5678:5678"  # Debug port
+
+  db:
+    ports:
+      - "5432:5432"  # Expose for development tools
+```
+
+```yaml
+# docker-compose.prod.yml (production)
+version: '3.8'
+
+services:
+  app:
+    image: myapp:${VERSION}
+    environment:
+      - DEBUG=false
+      - LOG_LEVEL=info
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/ssl:ro
+    depends_on:
+      - app
+    networks:
+      - frontend
+      - backend
+```
+
+### Health Checks (Required)
+```yaml
+services:
+  app:
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  redis:
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+```
+
+### Resource Limits
+```yaml
+services:
+  app:
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 65535
+        hard: 65535
+```
+
+## Network Architecture
+
+### Network Segmentation
+```yaml
+networks:
+  frontend:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+  backend:
+    driver: bridge
+    internal: true  # No external access
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+  data:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.22.0.0/16
+```
+
+### Service Assignment
+- **Frontend Network**: Nginx, Load Balancers
+- **Backend Network**: Application services, APIs
+- **Data Network**: Databases, Cache, Message Queues
+
+## Volume Management
+
+### Types and Usage
+```yaml
+volumes:
+  # Named volume for persistent data
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/myapp/data
+
+  # Bind mount for development
+  app_code:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./src
+
+  # Tmpfs for temporary data
+  temp_data:
+    driver: tmpfs
+    driver_opts:
+      tmpfs-size: 100M
+```
+
+## Kubernetes Readiness
+
+### 12-Factor App Compliance
+- **Config**: Environment variables
+- **Logs**: Stdout/stderr
+- **Processes**: Stateless
+- **Port Binding**: Self-contained
+- **Graceful Shutdown**: SIGTERM handling
+
+### Health Endpoints
+```python
+# FastAPI example
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "timestamp": datetime.utcnow()}
+
+@app.get("/ready")
+async def readiness_check():
+    # Check database connection, external services
+    try:
+        await db.execute("SELECT 1")
+        return {"status": "ready"}
+    except Exception:
+        raise HTTPException(status_code=503, detail="Not ready")
+```
+
+### Graceful Shutdown
+```python
+import signal
+import asyncio
+
+class GracefulKiller:
+    def __init__(self):
+        self.kill_now = False
+        signal.signal(signal.SIGINT, self._handle_signal)
+        signal.signal(signal.SIGTERM, self._handle_signal)
+
+    def _handle_signal(self, signum, frame):
+        self.kill_now = True
+
+async def main():
+    killer = GracefulKiller()
+    
+    while not killer.kill_now:
+        # Application logic
+        await asyncio.sleep(1)
+    
+    # Cleanup
+    await cleanup_resources()
+```
+
+## Security Best Practices
+
+### Container Security
+- **Non-root User**: Always create and use non-root user
+- **Read-only Filesystem**: When possible
+- **No Secrets in Images**: Use environment variables or mounted secrets
+- **Minimal Base Images**: Reduce attack surface
+
+### Network Security
+```yaml
+services:
+  app:
+    networks:
+      backend:
+        aliases:
+          - api-server
+    ports:
+      - "127.0.0.1:8000:8000"  # Bind to localhost only
+```
+
+### Secrets Management
+```yaml
+# Using Docker secrets (Swarm mode)
+secrets:
+  db_password:
+    external: true
+
+services:
+  app:
+    secrets:
+      - db_password
+    environment:
+      - DATABASE_PASSWORD_FILE=/run/secrets/db_password
+```
+
+## Development Workflow
+
+### Commands
+```bash
+# Development
+docker-compose up -d
+docker-compose logs -f app
+
+# Production
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+# Testing
+docker-compose -f docker-compose.test.yml run --rm test
+
+# Cleanup
+docker-compose down -v
+docker system prune -f
+```
+
+### Environment Files
+```bash
+# .env.example
+DATABASE_URL=postgresql://user:password@localhost:5432/myapp
+REDIS_URL=redis://localhost:6379/0
+SECRET_KEY=your-secret-key-here
+DEBUG=false
+LOG_LEVEL=info
+```
+
+@ref:security#secrets-management
+@ref:gates-system#g4-integration
+@ref:core-guardrails#anti-desperdicio

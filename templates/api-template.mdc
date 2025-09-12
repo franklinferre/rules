@@ -1,0 +1,203 @@
+
+---
+description: Template for API-specific rules (REST, GraphQL, gRPC, etc.)
+globs:
+  - "**/api/**"
+  - "**/routes/**"
+  - "**/controllers/**"
+  - "**/*.proto"
+alwaysApply: false
+---
+
+# {API_TYPE} API Standards Template
+
+## API Design Principles
+
+### {PRINCIPLE_1}
+- **Description**: What this principle means
+- **Implementation**: How to implement it
+- **Example**: Code or configuration example
+
+### {PRINCIPLE_2}
+- **Description**: What this principle means
+- **Implementation**: How to implement it
+- **Example**: Code or configuration example
+
+## Request/Response Patterns
+
+### Request Structure
+```{FORMAT}
+{
+  "example": "request structure"
+}
+```
+
+### Response Structure
+```{FORMAT}
+{
+  "success": true,
+  "data": {},
+  "error": null,
+  "metadata": {}
+}
+```
+
+### Error Responses
+```{FORMAT}
+{
+  "success": false,
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Human readable message",
+    "details": {}
+  }
+}
+```
+
+## Validation & Security
+
+### Input Validation
+- **Strategy**: Validation approach
+- **Tools**: Validation libraries/frameworks
+- **Rules**: Specific validation rules
+
+### Authentication
+- **Method**: Authentication method (JWT, OAuth, etc.)
+- **Implementation**: How to implement
+- **Security**: Security considerations
+
+### Authorization
+- **Strategy**: Authorization strategy (RBAC, ABAC, etc.)
+- **Implementation**: How to implement
+- **Granularity**: Level of permission control
+
+## Performance & Scalability
+
+### Caching
+- **Strategy**: Caching strategy
+- **Implementation**: How to implement
+- **Invalidation**: Cache invalidation rules
+
+### Rate Limiting
+- **Strategy**: Rate limiting approach
+- **Limits**: Specific limits per endpoint type
+- **Implementation**: How to implement
+
+### Pagination
+- **Strategy**: Pagination strategy
+- **Parameters**: Standard pagination parameters
+- **Response**: How to include pagination metadata
+
+## Documentation
+
+### API Documentation
+- **Tool**: Documentation tool (OpenAPI, GraphQL Schema, etc.)
+- **Standards**: Documentation standards
+- **Examples**: Include request/response examples
+
+### Versioning
+- **Strategy**: API versioning strategy
+- **Implementation**: How to implement versioning
+- **Deprecation**: Deprecation policy
+
+## Testing
+
+### Unit Tests
+- **Scope**: What to test at unit level
+- **Tools**: Testing frameworks
+- **Coverage**: Coverage requirements
+
+### Integration Tests
+- **Scope**: What to test at integration level
+- **Environment**: Test environment setup
+- **Data**: Test data management
+
+### Contract Tests
+- **Strategy**: Contract testing approach
+- **Tools**: Contract testing tools
+- **Scope**: What contracts to test
+
+## Monitoring & Observability
+
+### Logging
+- **Structure**: Log structure and format
+- **Content**: What to log
+- **Levels**: Log levels and when to use them
+
+### Metrics
+- **Key Metrics**: Important metrics to track
+- **Implementation**: How to implement metrics
+- **Alerting**: When to alert
+
+### Tracing
+- **Strategy**: Distributed tracing strategy
+- **Implementation**: How to implement tracing
+- **Correlation**: Request correlation
+
+## Error Handling
+
+### Error Categories
+- **Validation Errors**: 4xx errors
+- **Business Logic Errors**: 4xx errors
+- **System Errors**: 5xx errors
+
+### Error Response Format
+```{FORMAT}
+{
+  "error": {
+    "code": "SPECIFIC_ERROR_CODE",
+    "message": "User-friendly message",
+    "details": {
+      "field": "specific field error"
+    },
+    "trace_id": "correlation-id"
+  }
+}
+```
+
+## Anti-Patterns (Forbidden)
+
+### Design Anti-Patterns
+- ❌ Anti-pattern 1: Why it's bad and alternative
+- ❌ Anti-pattern 2: Why it's bad and alternative
+
+### Security Anti-Patterns
+- ❌ Anti-pattern 1: Why it's bad and alternative
+- ❌ Anti-pattern 2: Why it's bad and alternative
+
+### Performance Anti-Patterns
+- ❌ Anti-pattern 1: Why it's bad and alternative
+- ❌ Anti-pattern 2: Why it's bad and alternative
+
+## Examples
+
+### Good API Design
+```{FORMAT}
+// Example of well-designed API endpoint
+```
+
+### Bad API Design
+```{FORMAT}
+// Example of what NOT to do
+```
+
+## References
+
+- @ref:core-guardrails
+- @ref:security#api-security
+- @ref:testing#integration-tests
+- @docs:{API_SPECIFICATION_URL}
+- @docs:{FRAMEWORK_DOCUMENTATION_URL}
+
+---
+
+## Template Usage Instructions
+
+1. **Choose API type**: REST, GraphQL, gRPC, WebSocket, etc.
+2. **Update globs**: File patterns for auto-attachment
+3. **Customize format**: JSON, GraphQL schema, Protocol Buffers, etc.
+4. **Add specific rules**: API-type specific requirements
+5. **Include examples**: Real request/response examples
+6. **Security focus**: Emphasize security best practices
+7. **Performance considerations**: Include scalability patterns
+8. **Testing strategy**: Comprehensive testing approach

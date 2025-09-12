@@ -1,0 +1,119 @@
+
+---
+description: Template for creating language-specific rules
+globs:
+  - "**/*.{EXTENSION}"
+  - "**/specific-directories/**"
+alwaysApply: false
+---
+
+# {LANGUAGE} Standards Template
+
+## Project Structure
+
+```
+{TYPICAL_PROJECT_STRUCTURE}
+```
+
+## Language-Specific Patterns
+
+### {PATTERN_CATEGORY_1}
+- **Rule 1**: Description and example
+- **Rule 2**: Description and example
+
+### {PATTERN_CATEGORY_2}
+- **Rule 1**: Description and example
+- **Rule 2**: Description and example
+
+## Code Quality Standards
+
+### Type System (if applicable)
+- **Coverage**: X% minimum
+- **Strict Mode**: Enabled/Disabled
+- **Validation**: Tools and approaches
+
+### Documentation
+- **Style**: Documentation style (JSDoc, Sphinx, etc.)
+- **Coverage**: X% for public APIs
+- **Examples**: Include in complex functions
+
+### Linting & Formatting
+- **Tool**: Primary linting tool
+- **Config**: Configuration file location
+- **Rules**: Key rules to enforce
+
+## Framework-Specific (if applicable)
+
+### {FRAMEWORK_NAME}
+- **Pattern 1**: Description
+- **Pattern 2**: Description
+
+## Testing Standards
+
+### Unit Tests
+- **Tool**: Testing framework
+- **Structure**: Organization pattern
+- **Coverage**: Minimum percentage
+
+### Integration Tests
+- **Scope**: What to test
+- **Tools**: Testing tools
+- **Environment**: Test environment setup
+
+## Security Best Practices
+
+### {SECURITY_CATEGORY_1}
+- **Rule 1**: Security rule
+- **Rule 2**: Security rule
+
+### {SECURITY_CATEGORY_2}
+- **Rule 1**: Security rule
+- **Rule 2**: Security rule
+
+## Performance Considerations
+
+### {PERFORMANCE_CATEGORY}
+- **Optimization 1**: Description
+- **Optimization 2**: Description
+
+## Anti-Patterns (Forbidden)
+
+### {LANGUAGE} Specific
+- ❌ Anti-pattern 1: Why it's bad and alternative
+- ❌ Anti-pattern 2: Why it's bad and alternative
+
+### {FRAMEWORK} Specific (if applicable)
+- ❌ Anti-pattern 1: Why it's bad and alternative
+- ❌ Anti-pattern 2: Why it's bad and alternative
+
+## Examples
+
+### Good Example
+```{LANGUAGE}
+// Example of good code following the standards
+```
+
+### Bad Example
+```{LANGUAGE}
+// Example of what NOT to do
+```
+
+## References
+
+- @ref:core-guardrails
+- @ref:testing#unit-tests
+- @ref:security#input-validation
+- @docs:{OFFICIAL_DOCUMENTATION_URL}
+- @docs:{FRAMEWORK_DOCUMENTATION_URL}
+
+---
+
+## Template Usage Instructions
+
+1. **Replace placeholders**: All `{PLACEHOLDER}` items with actual values
+2. **Customize globs**: Update file patterns for auto-attachment
+3. **Add specific rules**: Include language/framework specific requirements
+4. **Update references**: Link to relevant core rules and external docs
+5. **Test with real projects**: Validate rules work in practice
+6. **Keep focused**: Each rule file should be < 500 lines
+7. **Document examples**: Include both good and bad code examples

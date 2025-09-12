@@ -1,0 +1,292 @@
+
+
+---
+description: Cursor IDE best practices - PRD generation, agent modes, model selection, references, and iterative development
+globs:
+alwaysApply: true
+---
+
+# Cursor IDE Best Practices
+
+## 1. Product Requirements Document (PRD) First
+
+### Always Start with a PRD
+- Use Cursor Agent to generate comprehensive PRD before coding
+- Include: project purpose, user stories, features, tech stack, constraints
+- Save as `instructions.md` or `PRD.md` for reference with @File
+- More granular PRD = better AI implementation
+
+### Sample PRD Prompt
+```
+You are a software product manager. Create a Product Requirements Document for [PROJECT_NAME]. Include:
+- Project purpose and target users
+- User stories (adding, editing, deleting features)
+- Key features with detailed descriptions
+- Non-functional requirements (performance, responsive design)
+- Tech stack specification (e.g., Python FastAPI backend, React frontend)
+- Success criteria and constraints
+Organize with clear sections and bullet points.
+```
+
+## 2. Agent Mode Selection Strategy
+
+### AGENT Mode (Autonomous Execution)
+**Use when**: Ready for hands-off automation
+- Implementing features end-to-end
+- Refactoring code across multiple files
+- Running tests and fixing issues
+- Has full tool access (read, write, terminal)
+
+### ASK Mode (Consultation Only)
+**Use when**: Need understanding without changes
+- Exploring codebase architecture
+- Debugging and error analysis
+- Planning and brainstorming
+- Code review and explanations
+- Read-only, no file modifications
+
+### Decision Matrix
+- **"Cursor, do this for me"** → AGENT Mode
+- **"Cursor, tell me about this"** → ASK Mode
+- **Planning phase** → ASK Mode first, then AGENT
+- **Implementation phase** → AGENT Mode
+
+## 3. Model Selection Guidelines
+
+### Top-Tier Models (Complex Tasks)
+- **Claude-4 Sonnet**: Best balance of quality/cost for coding
+- **OpenAI o3**: Strong reasoning, good for complex logic
+- **Gemini 2.5 Pro**: Excellent for large context (1M tokens)
+
+### Context Length Considerations
+- **Standard projects**: Claude-4 Sonnet (200K tokens)
+- **Large codebases**: Gemini 2.5 Pro (1M tokens)
+- **Enterprise scale**: Claude-4 Opus (200K tokens, deeper reasoning)
+
+### Cost/Speed Trade-offs
+- **Daily coding**: Claude-4 Sonnet (cost-effective)
+- **Critical features**: Reserve top models for quality
+- **Boilerplate**: Use faster/cheaper models after quotas
+- **Fallback**: GPT-4.1 > GPT-4o > GPT-4o-mini
+
+## 4. @ References Mastery
+
+### @File / @Files
+```
+Refer to @models.py and create a new API endpoint to create a Task.
+Using @tasks.py and @models.py for context, implement the feature described in @instructions.md
+```
+
+### @Code (Specific Snippets)
+- Highlight function → Add to Chat (Ctrl+Shift+L)
+- Type @function_name for indexed symbols
+- Focus AI on specific code pieces vs entire files
+
+### @Web (Real-time Information)
+```
+Search Streamlit documentation for drag and drop. @Web 'Streamlit drag and drop tasks'
+According to @Link(https://fastapi.tiangolo.com/tutorial/async-sql/), adjust our DB code
+```
+
+### @Terminal (Runtime Context)
+```
+Fix the bug indicated by @terminal
+Debug the test failure shown in @terminal
+```
+
+### @Git (Version History)
+```
+@git <commit_hash> - Show specific commit
+@git - Recent commits and diffs
+```
+
+## 5. Detailed Prompt Engineering
+
+### Clarity Principles
+- **State objective and constraints clearly**
+- **Reference specific components by name**
+- **Provide examples when needed**
+- **Specify files to change or create**
+- **Mention rules and context to remember**
+
+### Example: Detailed vs Vague
+❌ **Vague**: "Add a login feature"
+
+✅ **Detailed**: 
+```
+Add a user login feature to the app. Use JWT for authentication tokens and FastAPI's OAuth2PasswordBearer for security. Include a /login API endpoint and update the Streamlit frontend with a login form. Only authenticated users should see the task board. Follow our logging rule: log each login attempt.
+```
+
+### Prompt Structure Template
+```
+OBJECTIVE: [What you want to achieve]
+CONTEXT: @file1.py @file2.py [Relevant files/docs]
+CONSTRAINTS: [Technical requirements, rules to follow]
+ACCEPTANCE CRITERIA: [How to know it's done]
+FILES: [Specific files to create/modify]
+```
+
+## 6. Quality Triad: Logging + Tests + Docs
+
+### Always Request Logging
+```
+Add logging: when a task is created, log an INFO message with the task ID
+Ensure to log each operation (for debugging)
+Include error logging with appropriate levels (WARN, ERROR)
+```
+
+### Generate Tests Proactively
+```
+Write unit tests for the Task model and CRUD operations
+Generate pytest unit tests for the task creation API (covering success, missing fields, invalid data)
+Don't move forward until tests pass
+```
+
+### Documentation as First-Class
+```
+Create a README.md summarizing how to install and run the app
+Write docstrings for each new function explaining behavior and parameters
+Generate API documentation with examples
+```
+
+### Definition of Done Checklist
+- [ ] Feature implemented
+- [ ] Unit tests written and passing
+- [ ] Logging statements added
+- [ ] Documentation updated
+- [ ] Error handling included
+
+## 7. Iterative Improvement Cycle
+
+### Review → Identify → Refine → Repeat
+
+#### Review Thoroughly
+- Read AI output like a code review
+- Check against PRD requirements
+- Verify rule compliance
+- Test functionality
+
+#### Identify Issues
+- Wrong assumptions or missing details
+- Ambiguous prompt phrasing
+- Missing context or constraints
+- Edge cases not handled
+
+#### Refine Prompts
+```
+The solution looks good, but please update it to use binary search for efficiency
+It's missing the priority label feature — add that following the same pattern
+According to our backend.fastapi rule, ensure all endpoints have proper exception handling
+```
+
+#### Regeneration Strategy
+- **Same session**: For incremental improvements
+- **Fresh chat**: For major restructuring
+- **Multiple approaches**: Generate variants and compare
+- **Manual intervention**: Edit yourself, then inform Cursor
+
+### Learning from Iterations
+- Notice Cursor's patterns and preferences
+- Adjust rules based on consistent issues
+- Build prompt templates for common tasks
+- Document successful prompt patterns
+
+## 8. Smart Indexing with Ignore Files
+
+### .cursorignore (Completely Hidden)
+```
+# Dependencies and build artifacts
+venv/
+node_modules/
+dist/
+build/
+.next/
+
+# Logs and temporary files
+*.log
+.cache/
+.tmp/
+
+# Secrets and sensitive files
+.env
+.env.*
+*.key
+*.pem
+secrets/
+
+# Large data files
+*.csv
+*.json
+data/
+uploads/
+```
+
+### .cursorindexignore (Available on Demand)
+```
+# Documentation (reference with @docs/file.md when needed)
+docs/
+design_specs/
+
+# Legacy code (not indexed but referenceable)
+legacy_code/
+archived/
+
+# Large configuration files
+config/large_config.json
+```
+
+### Benefits
+- **Faster responses**: Less context to process
+- **Focused suggestions**: Relevant code only
+- **Token efficiency**: Avoid context limits
+- **Security**: Keep secrets out of AI context
+
+## 9. Advanced: MCP Servers Integration
+
+### When to Consider MCP
+- **Large projects**: Need extended context beyond normal limits
+- **Domain-specific knowledge**: Framework docs, company guidelines
+- **Custom tools**: REPL, specialized analysis
+- **Vector search**: Over large documentation sets
+
+### Popular MCP Servers
+- **Context7**: Vector search over documentation
+- **DeepWiki**: Long conversation memory
+- **Framework-specific**: Nuxt.js (mcp.nuxt.com), React, etc.
+
+### Setup Considerations
+- Requires separate service configuration
+- JSON config in Cursor settings
+- Advanced feature for complex projects
+- Consider cost/benefit for simple apps
+
+## 10. Workflow Integration
+
+### Daily Development Flow
+1. **Start**: Review PRD and current state (ASK mode)
+2. **Plan**: Break down tasks, choose model
+3. **Context**: Set up @references and ignore files
+4. **Implement**: Use AGENT mode with detailed prompts
+5. **Quality**: Request tests, logs, docs
+6. **Iterate**: Review, refine, improve
+7. **Document**: Update PRD, changelog
+
+### Project Setup Checklist
+- [ ] PRD created and saved
+- [ ] Project rules configured (.mdc files)
+- [ ] .cursorignore/.cursorindexignore set up
+- [ ] Model selection strategy defined
+- [ ] @ reference patterns established
+- [ ] Quality standards documented
+
+### Troubleshooting Common Issues
+- **Vague responses**: Add more context with @ references
+- **Wrong assumptions**: Use detailed prompts with examples
+- **Inconsistent style**: Check and update project rules
+- **Token limits**: Review ignore files and context
+- **Poor quality**: Switch to higher-tier model
+
+@ref:core-guardrails#execution-control
+@ref:io-contracts#request-response
+@ref:testing#unit-tests
+

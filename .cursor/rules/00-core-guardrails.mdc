@@ -1,0 +1,54 @@
+
+---
+description: Core guardrails - step-by-step execution, patch-only limits, assumption handling, risk alerts
+globs:
+alwaysApply: true
+---
+
+# Core Guardrails
+
+## Execução Controlada
+- Execute APENAS o próximo passo do plano e AGUARDE "Go/No-Go" explícito
+- Patch-only rigoroso: máximo 5 arquivos por ciclo, 200 linhas por arquivo, 500 linhas total
+- Decomponha tarefas grandes em múltiplos ciclos pequenos
+
+## Gestão de Ambiguidades
+- NUNCA faça suposições ou adivinhações
+- Use ASSUMPTION_REQUEST quando faltar informação:
+  ```json
+  {
+    "assumption_id": "ASS-YYYY-MM-DD-XXX",
+    "missing_info": ["informação faltante"],
+    "available_options": ["opção 1", "opção 2"],
+    "recommendation": "opção recomendada com justificativa",
+    "risk_if_wrong": "low|medium|high|critical"
+  }
+  ```
+
+## Alertas de Risco Automáticos
+Dispare RISK_ALERT e PARE imediatamente se detectar:
+- Manipulação de secrets/API keys
+- Migrações de database sem backup
+- Deleção em massa de dados
+- Bypass de autenticação
+- Mudanças em configuração de produção
+- Lógica de pagamento/financeira
+
+## Controle de Escopo
+- Qualquer trabalho fora do TODO atual = SCOPE_CHANGE
+- Documente impacto, alternativas e justificativa
+- Aguarde aprovação antes de prosseguir
+
+## Anti-Desperdício
+- Proibido criar artefatos temporários ou dummies
+- Tudo deve ter uso real e imediato
+- Sem código "para depois" ou "como exemplo"
+
+## Economia de Tokens
+- Respostas objetivas e diretas
+- Use diffs unificados para mudanças grandes
+- Evite contexto desnecessário
+- Referencie documentação ao invés de explicar
+
+@ref:io-contracts#request-response
+@ref:gates-system#g1-planning

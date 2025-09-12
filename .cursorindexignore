@@ -1,0 +1,56 @@
+# Documentation (reference when needed)
+docs/
+documentation/
+**/README_*.md
+**/CHANGELOG_*.md
+
+# Design and specifications
+design/
+specs/
+wireframes/
+mockups/
+
+# Legacy and archived code
+legacy/
+archived/
+deprecated/
+old/
+backup/
+
+# Large configuration files
+config/large_config.json
+config/generated_config.yaml
+**/webpack.config.js
+**/rollup.config.js
+
+# Test fixtures and mock data
+**/fixtures/
+**/mocks/
+**/test-data/
+**/__fixtures__/
+
+# Generated documentation
+**/api-docs/
+**/coverage/
+**/docs/build/
+
+# Vendor and third-party
+vendor/
+third-party/
+external/
+
+# Localization files (unless actively working on i18n)
+**/locales/
+**/translations/
+**/*.po
+**/*.pot
+
+# Migration files (reference when needed)
+**/migrations/
+**/db/migrate/
+
+# Scripts and utilities (reference when needed)
+scripts/
+utils/
+tools/
+bin/

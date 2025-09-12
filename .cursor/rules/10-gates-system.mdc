@@ -1,0 +1,111 @@
+
+---
+description: Gates G1-G5 system for quality control and decision points
+globs:
+alwaysApply: false
+---
+
+# Gates System (G1-G5)
+
+Sistema de controle de qualidade com pontos de decisão Go/No-Go obrigatórios.
+
+## G1 - Planning & Requirements
+**Purpose**: Validação de requisitos e planejamento
+
+**Mandatory Artifacts**:
+- PRD (Product Requirements Document)
+- TODO Protocol JSON com acceptance criteria
+- Análise de impacto e riscos
+- Identificação de dependências
+
+**Checklist**:
+- ✅ Requisitos claramente definidos
+- ✅ TODO items com acceptance criteria específicos
+- ✅ Dependências mapeadas
+- ✅ Riscos analisados com mitigações
+- ✅ Estimativa realística
+- ✅ Business value articulado
+
+**Exit Criteria**: 100% checklist + human approval
+
+## G2 - Design & Architecture
+**Purpose**: Validação de design e arquitetura
+
+**Mandatory Artifacts**:
+- ADR (Architecture Decision Record)
+- Diagramas C4 Model
+- Contratos de API/Interface
+- Bounded contexts (DDD)
+- Plano de migração se aplicável
+
+**Validation Rules**:
+- Domain layer não depende de infrastructure
+- Application layer usa apenas interfaces do domain
+- Infrastructure implementa interfaces do domain
+- Presentation depende apenas de application
+
+## G3 - Coding & Unit Tests
+**Purpose**: Implementação com testes unitários
+
+**Quality Gates**:
+- Code coverage ≥ 80% (target 90%)
+- Cyclomatic complexity ≤ 10
+- Cognitive complexity ≤ 15
+- File length ≤ 300 lines
+- Function length ≤ 50 lines
+- Zero linting errors
+- Zero security warnings
+
+## G4 - Integration & Quality
+**Purpose**: Testes de integração e qualidade
+
+**Performance Requirements**:
+- Response time P95 ≤ 200ms
+- Response time P99 ≤ 1000ms
+- Memory usage < 100MB per process
+- CPU usage < 70% under load
+- Error rate < 0.1%
+
+**Integration Checklist**:
+- ✅ Todos endpoints testados
+- ✅ Cenários de erro cobertos
+- ✅ Timeouts configurados
+- ✅ Retry logic implementada
+- ✅ Circuit breakers configurados
+
+## G5 - Release & Security
+**Purpose**: Validação de segurança e release
+
+**Security Checklist**:
+- ✅ Sem secrets hardcoded
+- ✅ Input validation implementada
+- ✅ Output sanitization configurada
+- ✅ Authentication/authorization testados
+- ✅ Rate limiting configurado
+- ✅ CORS configurado
+- ✅ Security headers implementados
+- ✅ Audit logging ativo
+
+**Release Checklist**:
+- ✅ Feature flags configuradas
+- ✅ Monitoring dashboards prontos
+- ✅ Alertas configurados
+- ✅ Documentation atualizada
+- ✅ Changelog preparado
+
+## Gate Decision Matrix
+
+**Can Skip Gate**:
+- G1: NEVER (planejamento sempre obrigatório)
+- G2: Only for hotfix with existing ADR
+- G3: NEVER (código sem testes é débito técnico)
+- G4: Only for isolated components
+- G5: NEVER (segurança é não-negociável)
+
+**Escalation**:
+- Single gate failure: retry com correções
+- Double gate failure: tech lead review
+- Triple gate failure: architecture review board
+
+@ref:core-guardrails#patch-only
+@ref:testing#coverage-requirements

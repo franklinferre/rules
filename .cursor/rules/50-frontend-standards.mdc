@@ -1,0 +1,205 @@
+
+---
+description: Frontend standards for TypeScript, React, Next.js, and Tailwind CSS
+globs:
+  - "**/*.tsx"
+  - "**/*.jsx"
+  - "**/app/**"
+  - "**/pages/**"
+  - "**/components/**"
+  - "**/*.css"
+  - "**/tailwind.config.*"
+alwaysApply: false
+---
+
+# Frontend Standards
+
+## Next.js App Router (Mandatory)
+
+### Project Structure
+```
+app/
+├── (auth)/          # Authenticated routes group
+├── (public)/        # Public routes group
+├── api/             # Route handlers
+├── _components/     # Shared components
+├── globals.css      # Global styles
+└── layout.tsx       # Root layout
+```
+
+### Server vs Client Components
+- **Default**: Always server component
+- **Client**: Use `'use client'` only when necessary
+- **Reasons for Client**: Event handlers, browser APIs, state, third-party client libs
+
+### Data Fetching
+- **Server**: Async components with cache
+- **Client**: TanStack Query
+- **Revalidation**: Time-based or on-demand
+- **Loading**: `loading.tsx` for each route
+
+## React Patterns
+
+### Component Structure
+```
+components/
+├── Button/
+│   ├── index.tsx           # Public export
+│   ├── Button.tsx          # Implementation
+│   ├── Button.types.ts     # Types & interfaces
+│   ├── Button.test.tsx     # Tests
+│   └── Button.stories.tsx  # Storybook (optional)
+```
+
+### Props & Types
+- **Interface**: Always use interface for props
+- **Children**: `PropsWithChildren<T>` when appropriate
+- **Spreading**: Avoid prop spreading
+- **Defaults**: Default parameters or defaultProps
+
+### Hooks Best Practices
+- **Custom Hooks**: `use` prefix obrigatório
+- **Organization**: `hooks/` directory
+- **Rules**: Não chamar condicionalmente, não em loops, apenas top-level
+
+## State Management
+
+### Local State
+- **Simple**: `useState`
+- **Complex**: `useReducer`
+- **Forms**: `react-hook-form`
+
+### Server State
+- **Tool**: TanStack Query
+- **Cache**: Configure `staleTime` e `cacheTime`
+- **Mutations**: Optimistic updates
+
+### Global State
+- **Tool**: Zustand
+- **Structure**: Slices pattern
+- **DevTools**: Enabled em desenvolvimento
+
+## Styling with Tailwind CSS
+
+### Approach
+- **Base**: Tailwind CSS + shadcn/ui
+- **Components**: shadcn/ui como base
+- **Customization**: `tailwind.config.ts`
+- **Themes**: CSS variables
+
+### Best Practices
+- Mobile-first responsive design
+- Dark mode suporte obrigatório
+- Evitar classes inline longas
+- Usar `cn()` helper para conditional classes
+
+### Example
+```tsx
+import { cn } from "@/lib/utils"
+
+interface ButtonProps {
+  variant?: "default" | "destructive" | "outline"
+  size?: "default" | "sm" | "lg"
+  className?: string
+}
+
+export function Button({ 
+  variant = "default", 
+  size = "default", 
+  className,
+  ...props 
+}: ButtonProps) {
+  return (
+    <button
+      className={cn(
+        "inline-flex items-center justify-center rounded-md font-medium transition-colors",
+        {
+          "bg-primary text-primary-foreground hover:bg-primary/90": variant === "default",
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90": variant === "destructive",
+          "border border-input hover:bg-accent": variant === "outline",
+        },
+        {
+          "h-10 px-4 py-2": size === "default",
+          "h-9 rounded-md px-3": size === "sm",
+          "h-11 rounded-md px-8": size === "lg",
+        },
+        className
+      )}
+      {...props}
+    />
+  )
+}
+```
+
+## Performance Optimization
+
+### Core Web Vitals Targets
+- **LCP**: < 2.5s
+- **CLS**: < 0.1
+- **INP**: ≤ 200ms (good), > 500ms (poor)
+
+### Optimization Techniques
+- **Images**: `next/image` with placeholder blur
+- **Fonts**: `next/font` with preload
+- **Scripts**: `next/script` with strategy
+- **Bundle**: `@next/bundle-analyzer` em CI
+
+### Code Splitting
+- **Dynamic Imports**: Para componentes pesados
+- **Route-based**: Automático com App Router
+- **Component-based**: `React.lazy` quando necessário
+
+## TypeScript Standards
+
+### Type Safety
+- **Strict Mode**: Enabled
+- **No Any**: Usar `unknown` com type guards
+- **Interfaces**: Para object shapes
+- **Types**: Para unions e primitives
+
+### Naming Conventions
+- **Interfaces**: `I` prefix opcional, PascalCase
+- **Types**: PascalCase
+- **Generics**: Single letter (`T`, `K`, `V`) ou descriptive (`TUser`)
+
+## Testing
+
+### Unit Tests
+- **Tool**: Vitest
+- **Utilities**: Testing Library
+- **Focus**: User behavior, não implementação
+
+### Integration Tests
+- **Tool**: Testing Library
+- **Scope**: Component interactions
+- **Mocking**: External dependencies only
+
+### E2E Tests
+- **Tool**: Playwright
+- **Organization**: `e2e/` directory na raiz
+- **Focus**: Critical user flows
+
+## Anti-Patterns (Forbidden)
+
+### TypeScript
+- ❌ `any` type usage
+- ❌ Hardcoded values
+- ❌ Silent error swallowing
+- ❌ Direct DOM manipulation in React
+- ❌ Nested ternary operators
+
+### React
+- ❌ Prop spreading sem controle
+- ❌ Hooks em condicionais
+- ❌ State mutations diretas
+- ❌ useEffect sem dependencies
+
+### Performance
+- ❌ Unnecessary re-renders
+- ❌ Large bundle sizes
+- ❌ Blocking main thread
+- ❌ Memory leaks
+
+@ref:testing#unit-tests
+@ref:security#input-validation
+@ref:core-guardrails#anti-desperdicio
