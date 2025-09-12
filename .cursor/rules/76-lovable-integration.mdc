@@ -1,0 +1,374 @@
+---
+title: "Lovable Integration & AI-Assisted Frontend Development"
+description: "Comprehensive methodology for frontend development using Lovable platform with backend integration, following C.L.E.A.R. framework and MDC best practices"
+globs:
+  - "**/*.tsx"
+  - "**/*.ts" 
+  - "**/*.jsx"
+  - "**/*.js"
+  - "**/*.vue"
+  - "**/*.svelte"
+  - "**/package.json"
+  - "**/supabase/**"
+  - "**/knowledge.md"
+  - "**/README.md"
+tags:
+  - lovable
+  - ai-development
+  - frontend
+  - supabase
+  - integration
+  - prompting
+---
+
+# Lovable Integration & AI-Assisted Frontend Development
+
+## Overview
+
+This rule establishes a comprehensive methodology for developing frontend applications using the Lovable platform while maintaining robust backend integration. It implements the C.L.E.A.R. framework (Concise, Logical, Explicit, Adaptive, Reflective) and provides structured protocols for AI-assisted development.
+
+## Core Principles
+
+### 1. C.L.E.A.R. Framework for AI Prompting
+
+**Concise**: Direct, focused instructions without unnecessary verbosity
+**Logical**: Step-by-step structured approach with clear sequence
+**Explicit**: Detailed specifications leaving no room for ambiguity
+**Adaptive**: Iterative refinement based on results and feedback
+**Reflective**: Continuous evaluation and improvement of prompts
+
+### 2. Development Phases (MDC-INT-01)
+
+#### Phase 1: Foundation Setup
+- Create comprehensive Custom Knowledge file
+- Establish backend structure and stabilize database schema
+- Configure version control strategy with GitHub integration
+- Define API contracts and data structures
+
+#### Phase 2: Synchronized Development
+- UI-first approach with dummy data
+- Incremental backend connection (read → create → update → delete)
+- Validation and pinning of stable versions
+- Structured prompting for each feature
+
+#### Phase 3: Integrated Debugging
+- Prioritize Chat Mode for troubleshooting
+- Root cause analysis over symptom fixing
+- Surgical corrections with limited scope
+- Regression testing after fixes
+
+#### Phase 4: Version Control & Deployment
+- Review AI-generated commits
+- Ensure frontend-backend synchronization
+- Deploy only from pinned, tested versions
+
+## Prompting Protocols
+
+### P-INT-01: Data Contract Definition
+When implementing API integration, always include explicit data contracts:
+
+```
+CONTEXT: Implementing user profile functionality
+TASK: Create profile update form
+DATA CONTRACT:
+- Submit: { "name": "string", "email": "string", "avatar_url": "string?" }
+- Response: { "id": "uuid", "updated_at": "timestamp", "success": boolean }
+- Error: { "error": "string", "field": "string?" }
+GUIDELINES: Validate email format, handle avatar upload separately
+RESTRICTIONS: Only authenticated users, rate limit 5 requests/minute
+```
+
+### P-INT-02: Backend Logic Integration
+For features depending on backend logic:
+
+```
+CONTEXT: User role-based access control
+TASK: Implement admin dashboard access
+USER CONTEXT: Current user role available via useAuth().user.role
+BUSINESS RULES:
+- Admin role: Full access to all features
+- Manager role: Read-only access to reports
+- User role: No dashboard access, redirect to /profile
+ERROR HANDLING: Show appropriate error messages for unauthorized access
+```
+
+### P-INT-03: Error Handling Specification
+Always specify error handling behavior:
+
+```
+ERROR SCENARIOS:
+- 401 Unauthorized: Redirect to /login
+- 403 Forbidden: Show "Access denied" message
+- 400 Bad Request: Display field-specific errors below form inputs
+- 500 Server Error: Show generic "Try again later" message
+- Network Error: Show retry button with exponential backoff
+```
+
+## Supabase Integration Guidelines
+
+### Schema Change Management (Critical)
+⚠️ **NEVER request schema changes through Lovable prompts**
+
+**Correct Process:**
+1. Make schema changes directly in Supabase Dashboard
+2. Test and validate changes in backend
+3. Update Custom Knowledge file with new schema
+4. Use targeted prompts to update affected frontend components
+
+```
+SCHEMA UPDATE PROMPT:
+The 'tasks' table now has a new column 'assignee_id' (uuid, foreign key to users).
+SCOPE: Update ONLY the task creation form to include user assignment dropdown.
+DO NOT modify existing task display components.
+Use the existing useUsers() hook for user data.
+```
+
+### Row Level Security (RLS) Integration
+Always specify RLS context in prompts:
+
+```
+RLS CONTEXT:
+- Users can only see their own tasks
+- Managers can see tasks from their team members
+- Admins can see all tasks
+IMPLEMENTATION: The RLS policies are already configured in Supabase.
+Frontend should handle UI based on user.role, backend enforces data access.
+```
+
+## Custom Knowledge File Structure
+
+Create a comprehensive `knowledge.md` file with:
+
+```markdown
+# Project Knowledge Base
+
+## Database Schema
+### Users Table
+- id: uuid (primary key)
+- email: string (unique)
+- role: enum ('user', 'manager', 'admin')
+- created_at: timestamp
+
+### Tasks Table
+- id: uuid (primary key)
+- title: string
+- description: text
+- user_id: uuid (foreign key)
+- status: enum ('pending', 'in_progress', 'completed')
+- created_at: timestamp
+
+## API Endpoints
+### Authentication
+- POST /auth/login: { email, password } → { user, session }
+- POST /auth/logout: {} → { success }
+
+### Tasks
+- GET /api/tasks: [] → Task[]
+- POST /api/tasks: CreateTaskDto → Task
+- PUT /api/tasks/:id: UpdateTaskDto → Task
+- DELETE /api/tasks/:id: {} → { success }
+
+## User Personas
+### Admin User
+- Full system access
+- Can manage all users and tasks
+- Access to analytics dashboard
+
+### Manager User  
+- Team management capabilities
+- Can view team member tasks
+- Limited admin functions
+
+### Regular User
+- Personal task management
+- Profile management only
+- No admin access
+
+## Design System
+### Colors
+- Primary: #3B82F6
+- Secondary: #10B981
+- Error: #EF4444
+- Warning: #F59E0B
+
+### Components
+- Use shadcn/ui components consistently
+- Custom Button variants: primary, secondary, outline, ghost
+- Form validation with react-hook-form + zod
+```
+
+## Debugging Protocols
+
+### Chat Mode Activation
+Switch to Chat Mode after maximum 2 failed "Try to Fix" attempts.
+
+### Root Cause Analysis Prompts
+```
+DEBUGGING PROMPTS:
+1. "Analyze the network traffic for this component to verify API calls"
+2. "Validate if the data structure matches the Supabase table schema"
+3. "Check Row Level Security policies for the current user context"
+4. "Examine the component state management for data flow issues"
+5. "Review error logs and identify the exact failure point"
+```
+
+### Systematic Debugging Approach
+1. **Isolate**: Create minimal reproduction case
+2. **Analyze**: Use Chat Mode for investigation
+3. **Document**: Record findings in project notes
+4. **Fix**: Apply surgical corrections
+5. **Test**: Verify fix and check for regressions
+
+## Version Control Best Practices
+
+### Pinning Strategy
+- Pin after each completed feature
+- Use descriptive pin messages: "User authentication flow complete"
+- Pin before attempting complex integrations
+- Create pins before schema changes
+
+### Commit Management
+- Review AI-generated commits before major releases
+- Use GitHub integration for detailed change tracking
+- Maintain linear workflow on main branch
+- Use feature branches sparingly and with caution
+
+### Rollback Procedures
+```
+ROLLBACK PROCESS:
+1. Identify last stable pin
+2. Compare current version with pinned version
+3. Document breaking changes
+4. Revert to pin if necessary
+5. Re-implement changes incrementally
+```
+
+## Security & Performance
+
+### API Key Management
+- Use Lovable's secure environment variables
+- Never include secrets in prompts
+- Rotate keys regularly
+- Implement proper CORS policies
+
+### Performance Optimization
+```
+PERFORMANCE PROMPTS:
+"Implement lazy loading for the task list component"
+"Add proper loading states for all API calls"
+"Optimize re-renders using React.memo and useMemo"
+"Implement infinite scroll for large data sets"
+```
+
+## Quality Assurance
+
+### Code Audit Prompts
+Run weekly audits using Chat Mode:
+
+```
+AUDIT PROMPT:
+"Perform a comprehensive code audit focusing on:
+1. API integration consistency with schema
+2. Error handling completeness
+3. Security best practices implementation
+4. Performance optimization opportunities
+5. Code organization and maintainability
+DO NOT make changes, only provide analysis report."
+```
+
+### Testing Integration
+```
+TESTING PROMPTS:
+"Create unit tests for the user authentication hook"
+"Add integration tests for the task CRUD operations"
+"Implement E2E tests for the complete user workflow"
+"Add error boundary components for graceful failure handling"
+```
+
+## Advanced Techniques
+
+### Meta Prompting
+Use AI to improve prompts:
+
+```
+META PROMPT:
+"Review and improve this prompt for implementing user notifications:
+[INSERT ORIGINAL PROMPT]
+Focus on clarity, completeness, and potential edge cases."
+```
+
+### Structured Training Wheels Prompting
+For complex features:
+
+```
+STRUCTURED PROMPT:
+CONTEXT: E-commerce checkout process
+TASK: Implement payment integration with Stripe
+GUIDELINES:
+- Use Stripe Elements for card input
+- Implement 3D Secure authentication
+- Handle payment failures gracefully
+- Store payment intent ID in database
+RESTRICTIONS:
+- PCI compliance required
+- No card data storage in frontend
+- Implement proper error boundaries
+VALIDATION:
+- Test with Stripe test cards
+- Verify webhook handling
+- Confirm order status updates
+```
+
+## Common Pitfalls & Solutions
+
+### Pitfall 1: Schema Desynchronization
+**Problem**: Frontend assumes data structure that doesn't match backend
+**Solution**: Always update Custom Knowledge before frontend changes
+
+### Pitfall 2: Overly Broad Prompts
+**Problem**: AI makes unwanted changes to unrelated components
+**Solution**: Use explicit scope limitations in prompts
+
+### Pitfall 3: Insufficient Error Handling
+**Problem**: Poor user experience when API calls fail
+**Solution**: Always specify error scenarios in prompts
+
+### Pitfall 4: Authentication State Issues
+**Problem**: Components don't properly handle auth state changes
+**Solution**: Use consistent auth patterns across all components
+
+## Integration Checklist
+
+Before deploying any feature:
+
+- [ ] Custom Knowledge file updated with latest schema
+- [ ] API contracts documented and tested
+- [ ] Error handling implemented for all scenarios
+- [ ] Loading states added for async operations
+- [ ] Authentication/authorization properly handled
+- [ ] RLS policies tested with different user roles
+- [ ] Component properly handles edge cases
+- [ ] Version pinned after successful testing
+- [ ] No hardcoded values or test data in production code
+- [ ] Performance optimizations applied where needed
+
+## Emergency Procedures
+
+### Critical Bug Response
+1. **Immediate**: Switch to Chat Mode, do not attempt auto-fixes
+2. **Assess**: Determine impact scope and affected users
+3. **Isolate**: Identify exact cause using systematic debugging
+4. **Revert**: Roll back to last stable pin if necessary
+5. **Fix**: Apply minimal, targeted correction
+6. **Test**: Comprehensive testing before re-deployment
+7. **Document**: Record incident and prevention measures
+
+### Schema Emergency Recovery
+If schema changes cause frontend breakage:
+1. **Do not** attempt to revert schema in Supabase
+2. **Do** update Custom Knowledge immediately
+3. **Create** targeted prompts to fix affected components
+4. **Test** each component individually
+5. **Deploy** fixes incrementally
+
+This rule ensures systematic, safe, and efficient development with Lovable while maintaining robust backend integration and code quality.
