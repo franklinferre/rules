@@ -1,0 +1,459 @@
+---
+title: "Memory Optimization and Performance"
+description: "Memory management, caching strategies, and performance optimization techniques across languages"
+globs: ['**/*.py', '**/*.js', '**/*.ts', '**/*.go', '**/*.rs', '**/*.java', '**/cache/**', '**/performance/**']
+activation: "onLanguage:python,javascript,typescript,go,rust,java"
+version: "2.0"
+created: "2025-09-12"
+updated: "2025-09-12"
+---
+
+### Memory Optimization - MDC Rules Guide
+
+### Overview
+Comprehensive memory optimization (@ref:72-memory-optimization) strategies covering caching, garbage collection, memory profiling, leak prevention, and management patterns across different programming languages and environments.
+
+### AI Memory Management for Projects
+
+### Memory Rule Implementation
+```markdown
+### Project Memory Storage
+Location: `.cursor/rules/learned-memories.mdc`
+
+### Structure:
+- User Preferences
+- Technical Decisions  
+- Project Conventions
+- Performance Patterns
+```
+
+### Memory Update Process
+1. **Identify Key Information** - Technical decisions, user preferences
+2. **Check Existing Memory** - Review current stored knowledge
+3. **Propose Updates** - Suggest additions to memory file
+4. **Reference in Context** - Use stored knowledge for consistency
+
+### Example Implementation
+```markdown
+### Technical Decisions
+**CSS Framework:** Tailwind v4 - Use v4 syntax and features
+**Database:** PostgreSQL with connection pooling
+**Caching Strategy:** Redis for session storage
+
+### User Preferences  
+**Code Style:** Arrow functions preferred over function declarations
+**Testing:** Jest with RTL for React components
+**Documentation:** Inline comments for complex logic
+```
+
+### Caching and In-Memory Optimization
+
+### Caching Best Practices
+- **TTL Configuration**: Set appropriate time-to-live values
+  - Short TTL (1-5 min): Frequently changing data
+  - Medium TTL (15-60 min): Semi-static content  
+  - Long TTL (1-24 hours): Static content
+- **Cache Size Limits**: Prevent unbounded memory growth
+- **Hit Rate Monitoring**: Track cache effectiveness (target >90%)
+
+### Implementation Patterns
+```javascript
+// Node.js Redis Cache Example
+const redis = require('redis');
+const client = redis.createClient({
+  host: 'localhost',
+  port: 6379,
+  maxRetriesPerRequest: 3,
+  retryDelayOnFailover: 100
+});
+
+// Cache with TTL
+async function cacheWithTTL(key, data, ttl = 3600) {
+  await client.setex(key, ttl, JSON.stringify(data));
+}
+
+// Cache retrieval with fallback
+async function getCached(key, fallbackFn) {
+  try {
+    const cached = await client.get(key);
+    if (cached) return JSON.parse(cached);
+    
+    const data = await fallbackFn();
+    await cacheWithTTL(key, data);
+    return data;
+  } catch (error) {
+    return await fallbackFn();
+  }
+}
+```
+
+### Cache Strategies
+- **Content Hashing**: Use cryptographic hashes for cache keys
+- **Cache Invalidation**: Implement selective cache clearing
+- **Tiered Caching**: L1 (memory) + L2 (Redis) + L3 (Database)
+- **Cache Warming**: Pre-populate frequently accessed data
+
+### Memory Leak Prevention
+
+### Detection Techniques
+- **Profiling Tools**: 
+  - Valgrind (C/C++)
+  - Chrome DevTools (JavaScript)
+  - Application Verifier (Windows)
+  - Memory Analyzer (Java)
+- **Manual Code Reviews**: Check allocation/deallocation patterns
+- **Automated Testing**: Memory leak detection in CI/CD
+
+### Prevention Strategies
+
+#### C/C++ Memory Management
+```c
+// Best Practice: RAII Pattern
+class ResourceManager {
+private:
+    char* buffer;
+public:
+    ResourceManager(size_t size) : buffer(new char[size]) {}
+    ~ResourceManager() { delete[] buffer; }
+    // Prevent copying to avoid double deletion
+    ResourceManager(const ResourceManager&) = delete;
+    ResourceManager& operator=(const ResourceManager&) = delete;
+};
+
+// Always pair malloc with free
+void* safeAlloc(size_t size) {
+    void* ptr = malloc(size);
+    if (!ptr) {
+        throw std::bad_alloc();
+    }
+    return ptr;
+}
+```
+
+#### JavaScript Memory Leak Prevention
+```javascript
+// Avoid global variables
+(function() {
+    // Use IIFE to create scope
+    let localVar = 'contained';
+})();
+
+// Remove event listeners
+function setupComponent() {
+    const handler = (e) => { /* handle event */ };
+    element.addEventListener('click', handler);
+    
+    // Cleanup function
+    return () => {
+        element.removeEventListener('click', handler);
+    };
+}
+
+// Use WeakMap for object associations
+const weakMap = new WeakMap();
+function associateData(obj, data) {
+    weakMap.set(obj, data); // Allows GC when obj is removed
+}
+```
+
+#### Python Memory Management
+```python
+### Context managers for resource cleanup
+class DatabaseConnection:
+    def __enter__(self):
+        self.connection = create_connection()
+        return self.connection
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.connection:
+            self.connection.close()
+
+### Usage
+with DatabaseConnection() as conn:
+    # Use connection
+    pass  # Automatically closed
+
+### Weak references for caches
+import weakref
+
+class Cache:
+    def __init__(self):
+        self._cache = weakref.WeakValueDictionary()
+    
+    def get_or_create(self, key, factory):
+        obj = self._cache.get(key)
+        if obj is None:
+            obj = factory()
+            self._cache[key] = obj
+        return obj
+```
+
+### Garbage Collection Optimization
+
+### .NET/C# Best Practices
+```csharp
+// Minimize allocations
+public class OptimizedProcessor {
+    private readonly StringBuilder _buffer = new();
+    private readonly List<int> _reusableList = new();
+    
+    public string ProcessData(IEnumerable<string> items) {
+        _buffer.Clear();
+        _reusableList.Clear();
+        
+        foreach (var item in items) {
+            _buffer.Append(item);
+        }
+        
+        return _buffer.ToString();
+    }
+}
+
+// Use object pooling for large objects
+public class ObjectPool<T> where T : class, new() {
+    private readonly Stack<T> _objects = new();
+    
+    public T Get() => _objects.Count > 0 ? _objects.Pop() : new T();
+    
+    public void Return(T item) {
+        if (item != null && _objects.Count < 100) {
+            _objects.Push(item);
+        }
+    }
+}
+```
+
+### Java GC Optimization
+```java
+// Minimize object creation
+public class StringProcessor {
+    private final StringBuilder buffer = new StringBuilder(1024);
+    
+    public String processStrings(List<String> strings) {
+        buffer.setLength(0); // Clear without reallocating
+        
+        for (String s : strings) {
+            buffer.append(s);
+        }
+        
+        return buffer.toString();
+    }
+}
+
+// Use primitive collections to avoid boxing
+import gnu.trove.list.array.TIntArrayList;
+
+public class PrimitiveCollectionExample {
+    private final TIntArrayList numbers = new TIntArrayList();
+    
+    public void addNumbers(int... nums) {
+        numbers.addAll(nums); // No Integer boxing
+    }
+}
+```
+
+### JavaScript V8 Optimization
+```javascript
+// Object pool pattern
+class ObjectPool {
+    constructor(createFn, resetFn) {
+        this.createFn = createFn;
+        this.resetFn = resetFn;
+        this.pool = [];
+    }
+    
+    get() {
+        return this.pool.pop() || this.createFn();
+    }
+    
+    release(obj) {
+        this.resetFn(obj);
+        if (this.pool.length < 100) {
+            this.pool.push(obj);
+        }
+    }
+}
+
+// Avoid creating functions in loops
+const handlers = new Map();
+function getHandler(type) {
+    if (!handlers.has(type)) {
+        handlers.set(type, (data) => processType(type, data));
+    }
+    return handlers.get(type);
+}
+```
+
+### Memory Profiling and Analysis
+
+### Profiling Strategies
+- **Baseline Measurements**: Establish memory usage patterns
+- **Load Testing**: Memory behavior under stress
+- **Long-running Analysis**: Detect gradual memory leaks
+- **Allocation Tracking**: Identify hotspots
+
+### Tools and Techniques
+
+#### Ruby Memory Profiling
+```ruby
+require 'memory_profiler'
+
+### Profile memory usage
+report = MemoryProfiler.report do
+  # Code to profile
+  large_array = Array.new(100000) { |i| "String #{i}" }
+  processed = large_array.map(&:upcase)
+end
+
+puts report.pretty_print
+```
+
+#### .NET Memory Analysis
+```csharp
+// Using diagnostic tools
+[MethodImpl(MethodImplOptions.NoInlining)]
+public void MemoryIntensiveMethod() {
+    var data = new List<string>();
+    
+    using (var activity = DiagnosticSource.StartActivity("MemoryOperation", data)) {
+        // Memory intensive operations
+        for (int i = 0; i < 100000; i++) {
+            data.Add($"Item {i}");
+        }
+    }
+}
+
+// Monitor GC pressure
+private void MonitorGCPressure() {
+    var gen0Collections = GC.CollectionCount(0);
+    var gen1Collections = GC.CollectionCount(1);
+    var gen2Collections = GC.CollectionCount(2);
+    
+    // Log or alert based on collection frequency
+}
+```
+
+### Performance Monitoring Patterns
+```javascript
+// Node.js memory monitoring
+function monitorMemory() {
+    const usage = process.memoryUsage();
+    
+    console.log({
+        rss: Math.round(usage.rss / 1024 / 1024 * 100) / 100, // MB
+        heapTotal: Math.round(usage.heapTotal / 1024 / 1024 * 100) / 100,
+        heapUsed: Math.round(usage.heapUsed / 1024 / 1024 * 100) / 100,
+        external: Math.round(usage.external / 1024 / 1024 * 100) / 100
+    });
+}
+
+// Monitor at intervals
+setInterval(monitorMemory, 30000);
+```
+
+### Memory Management Patterns
+
+### Stack vs Heap Management
+```cpp
+// Stack allocation (automatic cleanup)
+void stackAllocation() {
+    int localArray[1000]; // Destroyed when function exits
+    // No manual cleanup needed
+}
+
+// Heap allocation (manual management required)
+void heapAllocation() {
+    int* dynamicArray = new int[1000];
+    // Use array
+    delete[] dynamicArray; // Must manually free
+}
+
+// Smart pointer patterns (C++11+)
+void smartPointerPattern() {
+    auto ptr = std::make_unique<int[]>(1000);
+    // Automatically cleaned up when ptr goes out of scope
+}
+```
+
+### Resource Acquisition Is Initialization (RAII)
+```cpp
+class FileHandler {
+private:
+    FILE* file_;
+    
+public:
+    FileHandler(const char* filename, const char* mode) 
+        : file_(fopen(filename, mode)) {
+        if (!file_) {
+            throw std::runtime_error("Failed to open file");
+        }
+    }
+    
+    ~FileHandler() {
+        if (file_) {
+            fclose(file_);
+        }
+    }
+    
+    FILE* get() const { return file_; }
+};
+```
+
+### Memory Pool Patterns
+```c
+// Fixed-size memory pool
+typedef struct {
+    void* memory;
+    size_t block_size;
+    size_t block_count;
+    void* free_list;
+} MemoryPool;
+
+MemoryPool* create_pool(size_t block_size, size_t block_count) {
+    MemoryPool* pool = malloc(sizeof(MemoryPool));
+    pool->memory = malloc(block_size * block_count);
+    pool->block_size = block_size;
+    pool->block_count = block_count;
+    
+    // Initialize free list
+    char* ptr = (char*)pool->memory;
+    for (size_t i = 0; i < block_count - 1; i++) {
+        *(void**)ptr = ptr + block_size;
+        ptr += block_size;
+    }
+    *(void**)ptr = NULL;
+    pool->free_list = pool->memory;
+    
+    return pool;
+}
+```
+
+### Game Development Memory Patterns
+
+### Object Pooling for Performance
+```csharp
+// Unity object pooling example
+public class BulletPool : MonoBehaviour {
+    [SerializeField] private GameObject bulletPrefab;
+    [SerializeField] private int poolSize = 100;
+    
+    private Queue<GameObject> bulletPool = new Queue<GameObject>();
+    
+    void Start() {
+        // Pre-instantiate bullets
+        for (int i = 0; i < poolSize; i++) {
+            GameObject bullet = Instantiate(bulletPrefab);
+            bullet.SetActive(false);
+            bulletPool.Enqueue(bullet);
+        }
+    }
+    
+    public GameObject GetBullet() {
+        if (bulletPool.Count > 0) {
+            GameObject bullet = bulletPool.Dequeue();
+            bullet.SetActive(true);
+            return bullet;
+
+---
+**Note**: Content truncated for brevity. See full documentation for complete details.
+---

@@ -1,0 +1,256 @@
+---
+title: "Database Standards and Best Practices"
+description: "Comprehensive database standards for PostgreSQL, MySQL, SQLite, MongoDB, and Supabase with performance optimization"
+globs: ['**/*.sql', '**/*.py', '**/*.js', '**/*.ts', '**/migrations/**', '**/models/**', '**/database/**', '**/db/**']
+activation: "onLanguage:sql,python,javascript,typescript"
+version: "2.0"
+created: "2025-09-12"
+updated: "2025-09-12"
+---
+
+### Database Best Practices - MDC Rules Guide
+
+### Overview
+Comprehensive best practices for database development, optimization, and management across PostgreSQL, MySQL, SQLite, MongoDB, and Supabase, compiled from extensive research of industry standards and expert recommendations.
+
+### PostgreSQL Database Functions - Core Practices
+
+### Security and Access Control
+- **Default to `SECURITY INVOKER`**: Run functions with invoker's permissions for safer access
+- **Use `SECURITY DEFINER` only when explicitly required** with clear justification
+- **Always set `search_path = ''`** to avoid untrusted schema resolution
+- **Use fully qualified object names** (e.g., `schema_name.table_name`)
+
+### Function Design Principles
+- **Minimize Side Effects**: Prefer functions that return results over data modification
+- **Use Explicit Typing**: Clearly define input/output types to avoid ambiguity
+- **Default to Immutable/Stable Functions**: Declare as `IMMUTABLE` or `STABLE` for optimization
+- **Use `VOLATILE` only for functions with side effects**
+- **Include error handling**: Raise exceptions for invalid operations
+
+### Example Template
+```sql
+create or replace function my_schema.calculate_total(order_id bigint)
+returns numeric
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  total numeric;
+begin
+  if order_id is null then
+    raise exception 'Order ID cannot be null';
+  end if;
+  
+  select sum(price * quantity)
+  into total
+  from public.order_items
+  where order_id = calculate_total.order_id;
+  
+  return coalesce(total, 0);
+end;
+$$;
+```
+
+### PostgreSQL Performance Optimization
+
+### Database Design Optimization
+- **Balanced Normalization**: Reduce redundancy without over-normalizing
+- **Strategic Denormalization** for read-heavy scenarios
+- **Proper Indexing**: Create indexes on WHERE, JOIN, ORDER BY columns
+- **Index Types**: Use B-tree, GIN, GiST, BRIN appropriately
+- **Partitioning**: Divide large tables for better performance
+
+### Configuration Parameters
+- **Memory Settings**:
+  - `shared_buffers`: 25-40% of total RAM
+  - `work_mem`: Adjust for sort/join operations
+  - `maintenance_work_mem`: Increase for bulk tasks
+- **WAL Parameters**: Optimize `wal_buffers` and `max_wal_size`
+- **Autovacuum Settings**: Configure for table bloat prevention
+
+### Query Optimization
+- **Use EXPLAIN ANALYZE** for execution plan analysis
+- **Rewrite subqueries as JOINs** when possible
+- **Limit returned rows** with appropriate LIMIT clauses
+- **Leverage parallel query support** for complex operations
+
+### MySQL Best Practices
+
+### Schema Design
+- **Proper Normalization**: Avoid redundancy while maintaining performance
+- **Indexing Strategy**: Create indexes on frequently queried columns
+- **Use appropriate data types**: Choose efficient storage types
+- **Implement read replicas** for high read-to-write ratios
+
+### Performance Optimization
+- **Query Optimization**: Use indexes and avoid unnecessary JOINs
+- **Connection Pooling**: Implement for better resource management
+- **Caching Strategies**: Implement query result caching
+- **Monitor and tune** `my.cnf` configuration parameters
+
+### Security Practices
+- **SSL/TLS connections** for data in transit
+- **Role-based access control (RBAC)** for permission management
+- **Regular security updates** and patching
+- **Avoid SQL injection** with parameterized queries
+
+### MongoDB Best Practices
+
+### Schema Design Patterns
+- **Embedding Strategy**: Store related data within single documents
+- **Reference Pattern**: Use when embedding creates large documents
+- **Bucket Pattern**: For time-series data optimization
+- **Schema Versioning**: Handle schema evolution gracefully
+
+### Performance Optimization
+- **Indexing Strategy**: Create compound indexes for query patterns
+- **Aggregation Pipeline**: Use for complex data transformations
+- **Sharding**: Implement for horizontal scaling
+- **Replica Sets**: For high availability and read scaling
+
+### Query Patterns
+```javascript
+// Efficient compound index usage
+db.users.createIndex({ "status": 1, "created_at": -1 })
+
+// Aggregation pipeline example
+db.orders.aggregate([
+  { $match: { status: "completed" } },
+  { $group: { _id: "$customer_id", total: { $sum: "$amount" } } },
+  { $sort: { total: -1 } }
+])
+```
+
+### Supabase Best Practices
+
+### Schema Design
+- **PostgreSQL Foundation**: Leverage all PostgreSQL capabilities
+- **JSONB for Flexibility**: Use for semi-structured data
+- **Row Level Security (RLS)**: Implement granular access control
+- **Real-time Subscriptions**: Design for live updates
+
+### API and Integration
+- **Auto-generated REST/GraphQL APIs**: Leverage built-in capabilities
+- **JWT-based Authentication**: Use integrated auth system
+- **Edge Functions**: Deploy serverless functions close to users
+- **Storage Integration**: Utilize built-in file storage
+
+### Performance Considerations
+- **Connection Pooling**: Use built-in connection pooler
+- **Indexing Strategy**: Follow PostgreSQL indexing practices
+- **Query Optimization**: Leverage PostgreSQL query planner
+- **Caching**: Implement client-side and CDN caching
+
+### Database Connection Pooling
+
+### Configuration Best Practices
+- **Pool Sizing**: Use formula `connections = ((core_count * 2) + effective_spindle_count)`
+- **Timeout Settings**: Configure connection and idle timeouts appropriately
+- **Health Checks**: Implement connection validation
+- **Monitoring**: Track pool usage and performance metrics
+
+### Tools and Implementation
+- **PgBouncer**: Lightweight connection pooler for PostgreSQL
+- **HikariCP**: High-performance JDBC connection pool for Java
+- **Connection Pool Libraries**: Language-specific solutions (Npgsql, pgxpool)
+
+### Deployment Patterns
+- **Application-level**: Embedded in application process
+- **Service-level**: Dedicated pooling service
+- **Proxy-level**: Database proxy with pooling capabilities
+
+### Connection Pooling Optimization
+```javascript
+// Node.js example with pg-pool
+const { Pool } = require('pg')
+
+const pool = new Pool({
+  user: 'username',
+  host: 'localhost',
+  database: 'mydb',
+  password: 'password',
+  port: 5432,
+  max: 20, // maximum number of connections
+  idleTimeoutMillis: 30000, // close idle connections after 30 seconds
+  connectionTimeoutMillis: 2000, // return error after 2 seconds if no connection available
+})
+```
+
+### Schema Design Patterns
+
+### Universal Principles
+- **Single Source of Truth**: Avoid data duplication
+- **Appropriate Data Types**: Choose efficient storage types
+- **Consistent Naming**: Use clear, descriptive names
+- **Documentation**: Comment complex structures
+- **Versioning**: Plan for schema evolution
+
+### Relational Design (PostgreSQL, MySQL, Supabase)
+- **Primary Keys**: Use UUIDs for distributed systems
+- **Foreign Keys**: Maintain referential integrity
+- **Constraints**: Implement business rules at database level
+- **Triggers**: Use for audit trails and data validation
+
+### Document Design (MongoDB)
+- **Atomic Operations**: Design for document-level transactions
+- **Avoid Deep Nesting**: Keep document structure reasonable
+- **Index Strategy**: Plan indexes based on query patterns
+- **Schema Validation**: Use JSON Schema for structure enforcement
+
+### Security Best Practices
+
+### Access Control
+- **Principle of Least Privilege**: Grant minimum necessary permissions
+- **Authentication**: Use strong authentication mechanisms
+- **Authorization**: Implement role-based access control
+- **Audit Logging**: Track all database access and changes
+
+### Data Protection
+- **Encryption at Rest**: Encrypt sensitive data storage
+- **Encryption in Transit**: Use TLS for all connections
+- **Backup Security**: Encrypt and secure database backups
+- **Sensitive Data Handling**: Implement proper PII protection
+
+### Network Security
+- **Firewall Rules**: Restrict database access to necessary hosts
+- **VPN/Private Networks**: Use secure network connections
+- **Connection Limits**: Implement connection throttling
+- **Monitoring**: Set up intrusion detection systems
+
+### Monitoring and Maintenance
+
+### Performance Monitoring
+- **Query Performance**: Track slow queries and execution plans
+- **Resource Usage**: Monitor CPU, memory, and disk usage
+- **Connection Metrics**: Track connection pool utilization
+- **Error Rates**: Monitor database errors and timeouts
+
+### Maintenance Tasks
+- **Regular Backups**: Implement automated backup strategies
+- **Index Maintenance**: Regular REINDEX and ANALYZE operations
+- **Vacuum Operations**: Keep PostgreSQL tables optimized
+- **Statistics Updates**: Keep query planner statistics current
+
+### Alerting and Response
+- **Performance Alerts**: Set thresholds for key metrics
+- **Capacity Planning**: Monitor growth trends
+- **Incident Response**: Establish procedures for database issues
+- **Recovery Testing**: Regular backup and recovery testing
+
+### Migration and Deployment
+
+### Schema Migrations
+- **Version Control**: Track all schema changes
+- **Rollback Plans**: Prepare rollback scripts for changes
+- **Testing**: Test migrations in staging environment
+- **Incremental Changes**: Make small, incremental updates
+
+### Deployment Strategies
+- **Blue-Green Deployments**: Zero-downtime deployments
+- **Feature Flags**: Control feature rollouts
+- **Monitoring**: Close monitoring during deployments
+- **Automated Testing**: Comprehensive test suites
+
+This comprehensive guide provides the foundation for implementing robust, scalable, and secure database solutions across different database technologies.
