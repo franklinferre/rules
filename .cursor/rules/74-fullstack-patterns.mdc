@@ -1,0 +1,459 @@
+---
+title: "Full-Stack Development Patterns"
+description: "Modern full-stack architectures, SOLID principles, and CI/CD pipeline best practices"
+globs: ['**/*.py', '**/*.js', '**/*.ts', '**/*.jsx', '**/*.tsx', '**/src/**', '**/api/**', '**/frontend/**', '**/backend/**']
+activation: "onLanguage:python,javascript,typescript,jsx,tsx"
+version: "2.0"
+created: "2025-09-12"
+updated: "2025-09-12"
+---
+
+### Full-Stack Development - MDC Rules Guide
+
+### Overview
+Comprehensive full-stack development practices covering architecture patterns, design principles, tech stack optimization, workflow patterns, and best practices across frontend, backend, and integration layers.
+
+### Full-Stack Architecture Patterns
+
+### Layered Architecture Pattern
+```typescript
+// Three-tier architecture implementation
+interface PresentationLayer {
+  handleRequest(request: HttpRequest): Promise<HttpResponse>;
+}
+
+interface BusinessLogicLayer {
+  processBusinessLogic(data: any): Promise<any>;
+  validateInput(input: any): boolean;
+}
+
+interface DataAccessLayer {
+  findById(id: string): Promise<Entity>;
+  save(entity: Entity): Promise<Entity>;
+  delete(id: string): Promise<boolean>;
+}
+
+// Implementation example
+class UserController implements PresentationLayer {
+  constructor(
+    private userService: UserService,
+    private validator: RequestValidator
+  ) {}
+  
+  async handleRequest(request: HttpRequest): Promise<HttpResponse> {
+    try {
+      if (!this.validator.validateInput(request.body)) {
+        return { status: 400, body: 'Invalid input' };
+      }
+      
+      const result = await this.userService.processBusinessLogic(request.body);
+      return { status: 200, body: result };
+    } catch (error) {
+      return { status: 500, body: 'Internal server error' };
+    }
+  }
+}
+```
+
+### Microservices Architecture
+```yaml
+### Docker Compose microservices setup
+version: '3.8'
+services:
+  api-gateway:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - user-service
+      - order-service
+      - payment-service
+  
+  user-service:
+    build: ./services/user
+    environment:
+      - DATABASE_URL=postgresql://user:pass@user-db:5432/users
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - user-db
+      - redis
+  
+  order-service:
+    build: ./services/order
+    environment:
+      - DATABASE_URL=postgresql://user:pass@order-db:5432/orders
+      - USER_SERVICE_URL=http://user-service:3000
+    depends_on:
+      - order-db
+  
+  user-db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: users
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+```
+
+### Event-Driven Architecture
+```typescript
+// Event-driven system implementation
+interface Event {
+  id: string;
+  type: string;
+  payload: any;
+  timestamp: Date;
+  source: string;
+}
+
+class EventBus {
+  private subscribers = new Map<string, Array<(event: Event) => void>>();
+  
+  subscribe(eventType: string, handler: (event: Event) => void): void {
+    if (!this.subscribers.has(eventType)) {
+      this.subscribers.set(eventType, []);
+    }
+    this.subscribers.get(eventType)!.push(handler);
+  }
+  
+  async publish(event: Event): Promise<void> {
+    const handlers = this.subscribers.get(event.type) || [];
+    await Promise.all(handlers.map(handler => handler(event)));
+  }
+}
+
+// Usage example
+class OrderService {
+  constructor(private eventBus: EventBus) {
+    this.setupEventHandlers();
+  }
+  
+  private setupEventHandlers(): void {
+    this.eventBus.subscribe('user.created', this.handleUserCreated.bind(this));
+    this.eventBus.subscribe('payment.completed', this.handlePaymentCompleted.bind(this));
+  }
+  
+  async createOrder(orderData: any): Promise<Order> {
+    const order = await this.saveOrder(orderData);
+    
+    await this.eventBus.publish({
+      id: crypto.randomUUID(),
+      type: 'order.created',
+      payload: order,
+      timestamp: new Date(),
+      source: 'order-service'
+    });
+    
+    return order;
+  }
+  
+  private async handleUserCreated(event: Event): Promise<void> {
+    // Handle user creation logic
+  }
+  
+  private async handlePaymentCompleted(event: Event): Promise<void> {
+    // Handle payment completion logic
+  }
+}
+```
+
+### Design Principles Implementation
+
+### SOLID Principles in Full-Stack Context
+```typescript
+// Single Responsibility Principle
+class UserRepository {
+  async findById(id: string): Promise<User | null> {
+    // Only responsible for data access
+  }
+}
+
+class UserValidator {
+  validate(userData: any): ValidationResult {
+    // Only responsible for validation
+  }
+}
+
+class UserService {
+  constructor(
+    private repository: UserRepository,
+    private validator: UserValidator,
+    private emailService: EmailService
+  ) {}
+  
+  async createUser(userData: any): Promise<User> {
+    // Only responsible for business logic orchestration
+    const validation = this.validator.validate(userData);
+    if (!validation.isValid) {
+      throw new ValidationError(validation.errors);
+    }
+    
+    const user = await this.repository.save(userData);
+    await this.emailService.sendWelcomeEmail(user);
+    
+    return user;
+  }
+}
+
+// Open/Closed Principle - Extensible without modification
+interface PaymentProcessor {
+  processPayment(amount: number, paymentMethod: PaymentMethod): Promise<PaymentResult>;
+}
+
+class StripeProcessor implements PaymentProcessor {
+  async processPayment(amount: number, method: PaymentMethod): Promise<PaymentResult> {
+    // Stripe-specific implementation
+  }
+}
+
+class PayPalProcessor implements PaymentProcessor {
+  async processPayment(amount: number, method: PaymentMethod): Promise<PaymentResult> {
+    // PayPal-specific implementation
+  }
+}
+
+class PaymentService {
+  constructor(private processors: Map<string, PaymentProcessor>) {}
+  
+  async processPayment(provider: string, amount: number, method: PaymentMethod): Promise<PaymentResult> {
+    const processor = this.processors.get(provider);
+    if (!processor) {
+      throw new Error(`Unsupported payment provider: ${provider}`);
+    }
+    return processor.processPayment(amount, method);
+  }
+}
+```
+
+### Separation of Concerns
+```typescript
+// Frontend separation
+// components/UserProfile.tsx
+interface UserProfileProps {
+  userId: string;
+}
+
+export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
+  const { user, loading, error } = useUser(userId);
+  
+  if (loading) return <LoadingSpinner />;
+  if (error) return <ErrorMessage error={error} />;
+  if (!user) return <NotFound />;
+  
+  return (
+    <div className="user-profile">
+      <UserAvatar user={user} />
+      <UserDetails user={user} />
+      <UserActions userId={userId} />
+    </div>
+  );
+};
+
+// hooks/useUser.ts
+export const useUser = (userId: string) => {
+  const [state, setState] = useState<UserState>({
+    user: null,
+    loading: true,
+    error: null
+  });
+  
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const user = await userApi.fetchUser(userId);
+        setState({ user, loading: false, error: null });
+      } catch (error) {
+        setState({ user: null, loading: false, error });
+      }
+    };
+    
+    fetchUser();
+  }, [userId]);
+  
+  return state;
+};
+
+// api/userApi.ts
+class UserApi {
+  private baseUrl = process.env.REACT_APP_API_URL;
+  
+  async fetchUser(userId: string): Promise<User> {
+    const response = await fetch(`${this.baseUrl}/users/${userId}`, {
+      headers: this.getAuthHeaders()
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch user: ${response.statusText}`);
+    }
+    
+    return response.json();
+  }
+  
+  private getAuthHeaders(): Record<string, string> {
+    const token = localStorage.getItem('auth_token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+}
+
+export const userApi = new UserApi();
+```
+
+### Tech Stack Optimization
+
+### Performance-First Stack Selection
+```javascript
+// Optimized React/Next.js setup
+// next.config.js
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  experimental: {
+    appDir: true,
+  },
+  
+  // Performance optimizations
+  swcMinify: true,
+  
+  // Bundle analysis
+  webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+      };
+    }
+    
+    // Bundle size optimization
+    if (!dev) {
+      config.optimization.splitChunks = {
+        chunks: 'all',
+        cacheGroups: {
+          vendor: {
+            test: /[\\/]node_modules[\\/]/,
+            name: 'vendors',
+            chunks: 'all',
+          },
+        },
+      };
+    }
+    
+    return config;
+  },
+  
+  // Image optimization
+  images: {
+    domains: ['example.com'],
+    formats: ['image/webp', 'image/avif'],
+  },
+  
+  // Headers for performance
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+        ],
+      },
+    ];
+  },
+};
+
+module.exports = nextConfig;
+```
+
+### Backend Optimization Patterns
+```typescript
+// Express.js optimized setup
+import express from 'express';
+import compression from 'compression';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import { createProxyMiddleware } from 'http-proxy-middleware';
+
+const app = express();
+
+// Security middleware
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+}));
+
+// Performance middleware
+app.use(compression({
+  level: 6,
+  threshold: 1024,
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) {
+      return false;
+    }
+    return compression.filter(req, res);
+  },
+}));
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/', limiter);
+
+// Caching middleware
+const cacheMiddleware = (duration: number) => {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (req.method === 'GET') {
+      res.set('Cache-Control', `public, max-age=${duration}`);
+    }
+    next();
+  };
+};
+
+// API routes with caching
+app.get('/api/users/:id', cacheMiddleware(300), async (req, res) => {
+  try {
+    const user = await userService.findById(req.params.id);
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+```
+
+### Database Optimization
+```typescript
+// Prisma with optimization patterns
+// schema.prisma
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["jsonProtocol"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+---
+**Note**: Content truncated for brevity. See full documentation for complete details.
+---

@@ -1,0 +1,459 @@
+---
+title: "Traefik Proxy Configuration"
+description: "Traefik reverse proxy setup with Docker, SSL termination, and load balancing best practices"
+globs: ['**/traefik/**', '**/docker-compose*.yml', '**/Dockerfile*', '**/*.toml', '**/proxy/**']
+activation: "onLanguage:yaml,toml,dockerfile"
+version: "2.0"
+created: "2025-09-12"
+updated: "2025-09-12"
+---
+
+### Traefik Configuration - MDC Rules Guide
+
+### Overview
+Comprehensive best practices for Traefik configuration (@ref:71-traefik-proxy), Docker integration, reverse proxy setup, SSL management, and load balancing, based on official documentation and community best practices.
+
+### Docker Provider Configuration
+
+### Basic Setup
+```yaml
+### traefik.yml
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    watch: true
+    network: "proxy"
+```
+
+### Docker Compose Integration
+```yaml
+services:
+  traefik:
+    image: traefik:v3.5
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik.yml:/traefik.yml:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.dashboard.service=api@internal"
+```
+
+### Configuration Parameters
+
+#### Essential Settings
+- **`endpoint`**: Docker API endpoint (default: `unix:///var/run/docker.sock`)
+- **`exposedByDefault`**: Set to `false` for security (require explicit `traefik.enable=true`)
+- **`watch`**: Enable Docker events monitoring (default: `true`)
+- **`network`**: Default Docker network for container connections
+
+#### Advanced Options
+- **`useBindPortIP`**: Use container's bound IP/Port instead of internal network IP
+- **`defaultRule`**: Default routing rule template (default: `Host(\`{{ normalize .Name }}\`)`)
+- **`constraints`**: Filter containers based on label expressions
+
+### Label-Based Routing
+```yaml
+### Service configuration
+services:
+  myapp:
+    image: myapp:latest
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.myapp.rule=Host(`example.com`)"
+      - "traefik.http.routers.myapp.entrypoints=websecure"
+      - "traefik.http.routers.myapp.tls.certresolver=letsencrypt"
+      - "traefik.http.services.myapp.loadbalancer.server.port=8080"
+    networks:
+      - proxy
+```
+
+### Docker Swarm Best Practices
+
+### Service Labels in Swarm Mode
+```yaml
+### swarm-stack.yml
+services:
+  app:
+    image: myapp:latest
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.app.rule=Host(`app.example.com`)"
+        - "traefik.http.services.app.loadbalancer.server.port=3000"
+        - "traefik.docker.network=proxy"
+      placement:
+        constraints:
+          - node.role == worker
+    networks:
+      - proxy
+```
+
+### Swarm Configuration
+```yaml
+### traefik.yml for Swarm
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    swarmMode: true
+    swarmModeRefreshSeconds: 15
+    exposedByDefault: false
+    network: proxy
+```
+
+### High Availability Setup
+```yaml
+### Global service deployment
+services:
+  traefik:
+    image: traefik:v3.5
+    deploy:
+      mode: global
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+```
+
+### SSL and TLS Configuration
+
+### Certificate Resolvers
+```yaml
+### traefik.yml
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: admin@example.com
+      storage: /acme/acme.json
+      httpChallenge:
+        entryPoint: web
+  
+  cloudflare:
+    acme:
+      email: admin@example.com
+      storage: /acme/acme.json
+      dnsChallenge:
+        provider: cloudflare
+        delayBeforeCheck: 60
+```
+
+### TLS Options
+```yaml
+### traefik.yml
+tls:
+  options:
+    default:
+      sslStrategies:
+        - "tls.SniStrict"
+      minVersion: "VersionTLS12"
+      cipherSuites:
+        - "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+        - "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305"
+        - "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+```
+
+### SSL Labels Configuration
+```yaml
+labels:
+  - "traefik.http.routers.app.tls=true"
+  - "traefik.http.routers.app.tls.certresolver=letsencrypt"
+  - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+  - "traefik.http.routers.app-insecure.middlewares=redirect-to-https"
+```
+
+### Load Balancing Strategies
+
+### Load Balancing Algorithms
+```yaml
+### Weighted Round Robin (default)
+labels:
+  - "traefik.http.services.myapp.loadbalancer.server.port=8080"
+
+### Sticky Sessions
+labels:
+  - "traefik.http.services.myapp.loadbalancer.sticky.cookie=true"
+  - "traefik.http.services.myapp.loadbalancer.sticky.cookie.name=server_id"
+  - "traefik.http.services.myapp.loadbalancer.sticky.cookie.secure=true"
+
+### Health Checks
+labels:
+  - "traefik.http.services.myapp.loadbalancer.healthcheck.path=/health"
+  - "traefik.http.services.myapp.loadbalancer.healthcheck.interval=30s"
+  - "traefik.http.services.myapp.loadbalancer.healthcheck.timeout=5s"
+```
+
+### Multiple Server Configuration
+```yaml
+services:
+  app:
+    image: myapp:latest
+    deploy:
+      replicas: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.app.rule=Host(`app.example.com`)"
+      - "traefik.http.services.app.loadbalancer.server.port=8080"
+      # Traefik automatically load balances across replicas
+```
+
+### Middleware Configuration
+
+### Security Middlewares
+```yaml
+### Rate Limiting
+labels:
+  - "traefik.http.middlewares.ratelimit.ratelimit.average=100"
+  - "traefik.http.middlewares.ratelimit.ratelimit.burst=200"
+  - "traefik.http.middlewares.ratelimit.ratelimit.period=60s"
+
+### IP Whitelist
+labels:
+  - "traefik.http.middlewares.ipwhitelist.ipallowlist.sourcerange=192.168.1.0/24,10.0.0.0/8"
+
+### Basic Authentication
+labels:
+  - "traefik.http.middlewares.auth.basicauth.users=user:$$2y$$10$$..."
+```
+
+### Headers and Security
+```yaml
+### Security Headers
+labels:
+  - "traefik.http.middlewares.security-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
+  - "traefik.http.middlewares.security-headers.headers.customresponseheaders.X-Frame-Options=DENY"
+  - "traefik.http.middlewares.security-headers.headers.customresponseheaders.X-Content-Type-Options=nosniff"
+  - "traefik.http.middlewares.security-headers.headers.customresponseheaders.Strict-Transport-Security=max-age=31536000"
+
+### CORS Configuration
+labels:
+  - "traefik.http.middlewares.cors.headers.accesscontrolallowmethods=GET,OPTIONS,PUT,POST,DELETE"
+  - "traefik.http.middlewares.cors.headers.accesscontrolalloworiginlist=https://example.com"
+  - "traefik.http.middlewares.cors.headers.accesscontrolmaxage=100"
+```
+
+### Middleware Chaining
+```yaml
+labels:
+  - "traefik.http.routers.app.middlewares=ratelimit,auth,security-headers"
+```
+
+### Entry Points and Routers
+
+### Entry Points Configuration
+```yaml
+### traefik.yml
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entrypoint:
+          to: websecure
+          scheme: https
+  
+  websecure:
+    address: ":443"
+    http:
+      tls:
+        options: default
+  
+  ssh:
+    address: ":22"
+```
+
+### Router Configuration Patterns
+```yaml
+### Host-based routing
+labels:
+  - "traefik.http.routers.api.rule=Host(`api.example.com`)"
+  
+### Path-based routing
+labels:
+  - "traefik.http.routers.app.rule=Host(`example.com`) && PathPrefix(`/app`)"
+  
+### Priority-based routing
+labels:
+  - "traefik.http.routers.api.rule=Host(`example.com`) && PathPrefix(`/api`)"
+  - "traefik.http.routers.api.priority=1000"
+```
+
+### Security Best Practices
+
+### Network Security
+```yaml
+### Create dedicated network
+networks:
+  proxy:
+    external: true
+    
+### Limit container exposure
+services:
+  traefik:
+    networks:
+      - proxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    security_opt:
+      - no-new-privileges:true
+```
+
+### Authentication Integration
+```yaml
+### OAuth2 with external provider
+labels:
+  - "traefik.http.middlewares.oauth.forwardauth.address=http://oauth-provider:4181"
+  - "traefik.http.middlewares.oauth.forwardauth.authResponseHeaders=X-Forwarded-User"
+  - "traefik.http.routers.app.middlewares=oauth"
+```
+
+### Secrets Management
+```yaml
+### Docker secrets integration
+secrets:
+  traefik_dashboard_credentials:
+    external: true
+
+services:
+  traefik:
+    secrets:
+      - traefik_dashboard_credentials
+    environment:
+      - TRAEFIK_DASHBOARD_CREDENTIALS_FILE=/run/secrets/traefik_dashboard_credentials
+```
+
+### Performance Optimization
+
+### Connection Settings
+```yaml
+### traefik.yml
+entryPoints:
+  websecure:
+    address: ":443"
+    transport:
+      respondingTimeouts:
+        readTimeout: 60s
+        writeTimeout: 60s
+        idleTimeout: 180s
+      lifeCycle:
+        requestAcceptGraceTimeout: 10s
+        graceTimeOut: 10s
+```
+
+### Caching and Compression
+```yaml
+### Enable compression
+labels:
+  - "traefik.http.middlewares.compress.compress=true"
+  - "traefik.http.routers.app.middlewares=compress"
+```
+
+### Resource Limits
+```yaml
+### Docker resource constraints
+deploy:
+  resources:
+    limits:
+      cpus: '0.50'
+      memory: 512M
+    reservations:
+      cpus: '0.25'
+      memory: 256M
+```
+
+### Monitoring and Observability
+
+### Metrics Configuration
+```yaml
+### traefik.yml
+metrics:
+  prometheus:
+    addEntryPointsLabels: true
+    addServicesLabels: true
+    buckets:
+      - 0.1
+      - 0.3
+      - 1.2
+      - 5.0
+
+api:
+  dashboard: true
+  insecure: false
+```
+
+### Logging
+```yaml
+### traefik.yml
+log:
+  level: INFO
+  format: json
+
+accessLog:
+  format: json
+  fields:
+    defaultMode: keep
+    headers:
+      defaultMode: drop
+      names:
+        User-Agent: keep
+        Authorization: drop
+```
+
+### Health Checks
+```yaml
+### Health check endpoint
+ping:
+  entryPoint: web
+
+### Service health checks
+labels:
+  - "traefik.http.services.app.loadbalancer.healthcheck.path=/health"
+  - "traefik.http.services.app.loadbalancer.healthcheck.interval=10s"
+  - "traefik.http.services.app.loadbalancer.healthcheck.timeout=3s"
+  - "traefik.http.services.app.loadbalancer.healthcheck.retries=3"
+```
+
+### Configuration File Examples
+
+### Complete Production Setup
+```yaml
+### traefik.yml
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+api:
+  dashboard: true
+  insecure: false
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entrypoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: ":443"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    swarmMode: true
+    network: proxy
+  
+  file:
+    directory: /etc/traefik/dynamic
+
+
+---
+**Note**: Content truncated for brevity. See full documentation for complete details.
+---
