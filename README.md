@@ -1,16 +1,15 @@
-
 # Cursor MDC Rules Repository
 
 > **Repositório estruturado de regras Model-Driven Code (MDC) para Cursor IDE seguindo as práticas oficiais do Cursor Rules v2**
 
 ## 🎯 Visão Geral
 
-Este repositório fornece um conjunto padronizado e modular de regras MDC para desenvolvimento assistido por IA no Cursor IDE, organizadas seguindo as melhores práticas de:
+Este repositório fornece um conjunto padronizado e modular de **16 regras MDC** para desenvolvimento assistido por IA no Cursor IDE, organizadas seguindo as melhores práticas de:
 
-- **Cursor Rules v2** com arquivos `.mdc` e front-matter
+- **Cursor Rules v2** com arquivos `.mdc` e front-matter estruturado
 - **10 Best Practices** integradas do "Mastering Cursor IDE" por Roberto Infante
-- **Modularidade** com regras focadas e reutilizáveis
-- **Economia de tokens** com regras específicas por contexto
+- **Modularidade** com regras focadas e reutilizáveis por contexto
+- **Economia de tokens** com ativação inteligente por padrões de arquivos
 - **Consistência** entre diferentes tecnologias e projetos
 - **Referências cruzadas** entre regras relacionadas
 - **Prompt Engineering** com framework OSCAR e padrões estruturados
@@ -20,41 +19,83 @@ Este repositório fornece um conjunto padronizado e modular de regras MDC para d
 
 ```
 cursor-mdc-rules/
-├── .cursor/rules/           # Regras Project Rules v2 (.mdc)
-│   ├── 00-core-guardrails.mdc
-│   ├── 05-cursor-best-practices.mdc  # NEW: 10 Best Practices
-│   ├── 10-gates-system.mdc
-│   ├── 15-prompt-engineering.mdc     # NEW: OSCAR Framework
-│   ├── 20-io-contracts.mdc
-│   ├── 25-context-optimization.mdc   # NEW: Indexing & References
-│   ├── 30-testing.mdc
-│   ├── 40-security.mdc
-│   └── ...
+├── .cursor/rules/           # 16 Regras Project Rules v2 (.mdc)
+│   ├── 00-core-guardrails.mdc          # Controles fundamentais
+│   ├── 05-cursor-best-practices.mdc    # 10 Best Practices integradas
+│   ├── 10-gates-system.mdc             # Sistema de qualidade G1-G5
+│   ├── 15-prompt-engineering.mdc       # Framework OSCAR avançado
+│   ├── 20-io-contracts.mdc             # Contratos REQUEST/RESPONSE
+│   ├── 25-context-optimization.mdc     # Otimização de contexto e tokens
+│   ├── 30-testing.mdc                  # Estratégias de teste
+│   ├── 40-security.mdc                 # Requisitos de segurança
+│   ├── 50-frontend-standards.mdc       # TypeScript/React/Next.js
+│   ├── 51-python-fastapi.mdc           # Python/FastAPI/Clean Architecture
+│   ├── 60-docker-compose.mdc           # Containerização e Docker
+│   ├── 70-database-standards.mdc       # Padrões de banco de dados
+│   ├── 71-traefik-proxy.mdc           # Proxy reverso Traefik
+│   ├── 72-memory-optimization.mdc      # Otimização de memória
+│   ├── 73-rule-authoring.mdc          # Meta-práticas para regras MDC
+│   └── 74-fullstack-patterns.mdc      # Arquiteturas full-stack
 ├── core/                    # Regras base e globais
-│   ├── global-standards.md
-│   ├── naming-conventions.md
-│   └── error-handling.md
-├── languages/               # Regras específicas por linguagem
-│   ├── typescript-react/
-│   ├── python-fastapi/
-│   └── ...
-├── devops/                  # Regras de DevOps e infraestrutura
-│   ├── docker/
-│   ├── kubernetes/
-│   └── cicd/
+│   ├── global-standards.md             # Padrões globais de desenvolvimento
+│   ├── naming-conventions.md           # Convenções de nomenclatura
+│   └── error-handling.md               # Tratamento de erros padronizado
+├── docs/                    # Documentação completa
+│   ├── cursor-best-practices-integration.md  # Guia das 10 Best Practices
+│   ├── user-rules-guide.md                   # Configuração de regras globais
+│   ├── project-rules-guide.md                # Uso de regras específicas
+│   └── migration-guide.md                    # Migração de regras antigas
 ├── templates/               # Templates para novas regras
-│   ├── language-template.mdc
-│   ├── api-template.mdc
-│   └── devops-template.mdc
-├── docs/                    # Documentação
-│   ├── user-rules-guide.md
-│   ├── project-rules-guide.md
-│   └── migration-guide.md
-└── examples/                # Exemplos de uso
-    ├── nextjs-project/
-    ├── fastapi-project/
-    └── fullstack-project/
+│   ├── language-template.mdc           # Template para linguagens
+│   ├── api-template.mdc                # Template para APIs
+│   └── devops-template.mdc             # Template para DevOps
+├── languages/               # Regras específicas por linguagem (futuro)
+├── devops/                  # Regras de DevOps e infraestrutura (futuro)
+└── examples/                # Exemplos de uso (futuro)
 ```
+
+## 📋 Catálogo Completo das 16 Regras MDC
+
+### 🛡️ Regras Fundamentais (Always Apply)
+
+| Regra | Nome | Descrição | Ativação |
+|-------|------|-----------|----------|
+| **00** | **Core Guardrails** | Controles fundamentais: execução step-by-step, patch-only limits, tratamento de assumptions, alertas de risco | `alwaysApply: true` |
+| **40** | **Security** | Requisitos de segurança básicos: autenticação, autorização, proteção de dados | `alwaysApply: true` |
+
+### 🎯 Regras de Produtividade e Best Practices
+
+| Regra | Nome | Descrição | Ativação |
+|-------|------|-----------|----------|
+| **05** | **Cursor Best Practices** | 10 Best Practices integradas: PRD generation, agent modes, model selection, references, desenvolvimento iterativo | Auto por contexto |
+| **10** | **Gates System** | Sistema de qualidade G1-G5 para controle de qualidade e pontos de decisão | Por solicitação |
+| **15** | **Prompt Engineering** | Técnicas avançadas de prompt engineering: framework OSCAR, especificações detalhadas, gerenciamento de contexto | Manual (`@prompt-engineering`) |
+| **25** | **Context Optimization** | Otimização de contexto e indexação: ignore files, estratégias de referência, gerenciamento de tokens | Manual (`@context-optimization`) |
+
+### 🔧 Regras de Desenvolvimento
+
+| Regra | Nome | Descrição | Ativação |
+|-------|------|-----------|----------|
+| **20** | **I/O Contracts** | Contratos obrigatórios REQUEST/RESPONSE para todas as operações | Por solicitação |
+| **30** | **Testing** | Estratégia de testes e requisitos de cobertura (unit/integration/e2e) | `**/*tests/**` |
+| **73** | **Rule Authoring** | Meta-práticas e padrões para criação de regras MDC efetivas | `**/*.mdc`, `**/rules/**` |
+
+### 💻 Regras de Tecnologia Específica
+
+| Regra | Nome | Descrição | Ativação |
+|-------|------|-----------|----------|
+| **50** | **Frontend Standards** | Padrões para TypeScript, React, Next.js e Tailwind CSS | `**/*.tsx` |
+| **51** | **Python FastAPI** | Padrões Python e FastAPI seguindo Clean Architecture e DDD | `**/*.py` |
+| **60** | **Docker Compose** | Padrões de Docker e containerização com multi-stage builds e security hardening | `Dockerfile*`, `docker-compose*.yml` |
+
+### 🗄️ Regras de Infraestrutura e Performance
+
+| Regra | Nome | Descrição | Ativação |
+|-------|------|-----------|----------|
+| **70** | **Database Standards** | Padrões abrangentes para PostgreSQL, MySQL, SQLite, MongoDB e Supabase com otimização de performance | `**/*.sql`, `**/migrations/**`, `**/models/**` |
+| **71** | **Traefik Proxy** | Configuração de proxy reverso Traefik com Docker, terminação SSL e load balancing | `**/traefik/**`, `**/*.toml` |
+| **72** | **Memory Optimization** | Gerenciamento de memória, estratégias de cache e técnicas de otimização de performance | `**/*.py`, `**/*.js`, `**/*.ts`, `**/cache/**` |
+| **74** | **Full-Stack Patterns** | Arquiteturas full-stack modernas, princípios SOLID e melhores práticas de CI/CD | `**/src/**`, `**/api/**`, `**/frontend/**`, `**/backend/**` |
 
 ## 🚀 Quick Start
 
@@ -89,13 +130,21 @@ Copie os arquivos `.mdc` da pasta `.cursor/rules/` para o seu projeto:
 ```bash
 # Para projeto Next.js + TypeScript
 cp .cursor/rules/00-core-guardrails.mdc your-project/.cursor/rules/
+cp .cursor/rules/05-cursor-best-practices.mdc your-project/.cursor/rules/
 cp .cursor/rules/50-frontend-standards.mdc your-project/.cursor/rules/
 cp .cursor/rules/30-testing.mdc your-project/.cursor/rules/
 
 # Para projeto Python + FastAPI
 cp .cursor/rules/00-core-guardrails.mdc your-project/.cursor/rules/
+cp .cursor/rules/05-cursor-best-practices.mdc your-project/.cursor/rules/
 cp .cursor/rules/51-python-fastapi.mdc your-project/.cursor/rules/
 cp .cursor/rules/30-testing.mdc your-project/.cursor/rules/
+
+# Para projeto Full-Stack com Database
+cp .cursor/rules/00-core-guardrails.mdc your-project/.cursor/rules/
+cp .cursor/rules/70-database-standards.mdc your-project/.cursor/rules/
+cp .cursor/rules/74-fullstack-patterns.mdc your-project/.cursor/rules/
+cp .cursor/rules/72-memory-optimization.mdc your-project/.cursor/rules/
 ```
 
 ### 3. Context Optimization
@@ -109,19 +158,29 @@ Configure arquivos de ignore para otimizar tokens e performance:
 **/venv/
 **/dist/
 **/build/
+**/.next/
+**/__pycache__/
 
 # Secrets and sensitive data
 **/.env
 **/.env.*
 **/*.key
 **/*.pem
+**/secrets/
 
 # Large data and media files
 **/*.csv
 **/*.pdf
 **/*.jpg
+**/*.png
 **/*.mp4
 **/*.zip
+**/*.tar.gz
+
+# Database files
+**/*.db
+**/*.sqlite
+**/dumps/
 ```
 
 **`.cursorindexignore`** (acesso sob demanda):
@@ -130,15 +189,24 @@ Configure arquivos de ignore para otimizar tokens e performance:
 docs/
 design/
 specs/
+README.md
 
 # Legacy and archived code
 legacy/
 archived/
 deprecated/
+old/
 
 # Large configuration files
 config/large_config.json
 **/webpack.config.js
+**/rollup.config.js
+**/vite.config.ts
+
+# Test fixtures and mocks
+**/fixtures/
+**/mocks/
+**/test-data/
 ```
 
 ## 🚀 Cursor Best Practices Integradas
@@ -182,47 +250,6 @@ config/large_config.json
 - **Feedback loops**: Revisão imediata, análise estruturada, refinamento
 - **Progressive disclosure**: Comece simples, adicione complexidade iterativamente
 
-## 📋 Tipos de Regras
-
-### Always Apply
-Regras sempre ativas em qualquer contexto:
-- `00-core-guardrails.mdc` - Controles fundamentais
-- `05-cursor-best-practices.mdc` - 10 Best Practices do Cursor IDE
-- `40-security.mdc` - Requisitos de segurança básicos
-
-### Auto Attached
-Regras ativadas automaticamente por padrões de arquivos:
-- `50-frontend-standards.mdc` - Para `**/*.tsx`, `**/app/**`
-- `51-python-fastapi.mdc` - Para `**/*.py`
-- `60-docker-compose.mdc` - Para `Dockerfile*`, `docker-compose*.yml`
-
-### Agent Requested
-Regras incluídas quando o agente detecta contexto relevante:
-- `10-gates-system.mdc` - Para planejamento e ADRs
-- `80-observability.mdc` - Para monitoramento e logs
-
-### Manual
-Regras ativadas explicitamente com `@rule-name`:
-- `15-prompt-engineering.mdc` - Com `@prompt-engineering`
-- `20-io-contracts.mdc` - Com `@io-contracts`
-- `25-context-optimization.mdc` - Com `@context-optimization`
-- `90-troubleshooting.mdc` - Com `@troubleshooting`
-
-## 🔗 Sistema de Referências
-
-As regras usam um sistema de referências cruzadas:
-
-```markdown
-<!-- Referência a outra regra -->
-@ref:core-guardrails#patch-only
-
-<!-- Referência a documentação externa -->
-@docs:https://docs.cursor.com/en/context/rules
-
-<!-- Referência a template -->
-@template:language-template.mdc
-```
-
 ## 🎨 Padrões de Nomenclatura
 
 ### Arquivos de Regras
@@ -239,24 +266,79 @@ As regras usam um sistema de referências cruzadas:
 ## 🛡️ Controles de Qualidade
 
 ### Gates System (G1-G5)
-1. **G1 - Planning**: Validação de requisitos
-2. **G2 - Design**: Arquitetura e ADRs
-3. **G3 - Coding**: Implementação com testes
-4. **G4 - Integration**: Testes de integração
-5. **G5 - Release**: Segurança e deployment
+1. **G1 - Planning**: Validação de requisitos e PRD
+2. **G2 - Design**: Arquitetura e ADRs (Architecture Decision Records)
+3. **G3 - Coding**: Implementação com testes unitários
+4. **G4 - Integration**: Testes de integração e performance
+5. **G5 - Release**: Segurança, deployment e monitoramento
 
 ### Protocolos Obrigatórios
-- **ASSUMPTION_REQUEST**: Para ambiguidades
-- **RISK_ALERT**: Para operações sensíveis
-- **SCOPE_CHANGE**: Para mudanças de escopo
+- **ASSUMPTION_REQUEST**: Para ambiguidades e dados faltantes
+- **RISK_ALERT**: Para operações sensíveis (secrets, migrations, auth)
+- **SCOPE_CHANGE**: Para mudanças de escopo com análise de impacto
+
+## 🔗 Sistema de Referências
+
+As regras usam um sistema de referências cruzadas:
+
+```markdown
+<!-- Referência a outra regra -->
+@ref:core-guardrails#patch-only
+
+<!-- Referência a documentação externa -->
+@docs:https://docs.cursor.com/en/context/rules
+
+<!-- Referência a template -->
+@template:language-template.mdc
+```
+
+## 🆕 Novas Funcionalidades (Regras 70-74)
+
+### 🗄️ Database Standards (Regra 70)
+- **PostgreSQL, MySQL, SQLite**: Otimizações específicas por engine
+- **MongoDB**: Padrões NoSQL e agregações
+- **Supabase**: Integração com RLS e Edge Functions
+- **Performance**: Indexação, query optimization, connection pooling
+
+### 🌐 Traefik Proxy (Regra 71)
+- **Docker Integration**: Configuração automática com labels
+- **SSL Termination**: Let's Encrypt e certificados customizados
+- **Load Balancing**: Algoritmos e health checks
+- **Middleware**: Rate limiting, auth, compression
+
+### ⚡ Memory Optimization (Regra 72)
+- **Caching Strategies**: Redis, in-memory, CDN
+- **Memory Profiling**: Ferramentas por linguagem
+- **Garbage Collection**: Otimizações específicas
+- **Performance Monitoring**: Métricas e alertas
+
+### 📝 Rule Authoring (Regra 73)
+- **Meta-practices**: Como criar regras efetivas
+- **Front-matter Standards**: Estrutura obrigatória
+- **Testing Rules**: Validação em projetos reais
+- **Documentation**: Padrões de documentação
+
+### 🏗️ Full-Stack Patterns (Regra 74)
+- **SOLID Principles**: Aplicação prática
+- **Clean Architecture**: Camadas e dependências
+- **CI/CD Pipelines**: GitHub Actions, GitLab CI
+- **Monitoring**: Observabilidade e alertas
+
+## 📊 Estatísticas do Repositório
+
+- **16 Regras MDC** ativas e testadas
+- **4 Documentos** de guia e migração
+- **3 Templates** para criação de novas regras
+- **Cobertura**: Frontend, Backend, DevOps, Database, Performance
+- **Compatibilidade**: Cursor Rules v2 completa
+- **Última atualização**: Setembro 2025
 
 ## 📚 Documentação
 
-- [Cursor Best Practices Integration](docs/cursor-best-practices-integration.md) - **NOVO**: Guia completo das 10 melhores práticas integradas
-- [User Rules Guide](docs/user-rules-guide.md) - Como configurar regras globais
-- [Project Rules Guide](docs/project-rules-guide.md) - Como usar regras específicas
-- [Migration Guide](docs/migration-guide.md) - Migração de regras antigas
-- [Templates Guide](templates/README.md) - Como criar novas regras
+- [**Cursor Best Practices Integration**](docs/cursor-best-practices-integration.md) - Guia completo das 10 melhores práticas integradas
+- [**User Rules Guide**](docs/user-rules-guide.md) - Como configurar regras globais no Cursor
+- [**Project Rules Guide**](docs/project-rules-guide.md) - Como usar regras específicas por projeto
+- [**Migration Guide**](docs/migration-guide.md) - Migração de regras antigas para v2
 
 ## 🤝 Contribuição
 
@@ -273,6 +355,21 @@ As regras usam um sistema de referências cruzadas:
 - **Testar** com projetos reais antes de submeter
 - **Documentar** exemplos de uso
 - **Referenciar** fontes oficiais quando aplicável
+- **Seguir** padrões de nomenclatura estabelecidos
+
+## 🔮 Roadmap
+
+### Próximas Regras Planejadas
+- **75-supabase-integration.mdc** - Integração oficial Supabase
+- **76-lovable-integration.mdc** - Integração com Lovable platform
+- **80-observability.mdc** - Monitoramento e observabilidade
+- **90-troubleshooting.mdc** - Debugging e resolução de problemas
+
+### Melhorias Futuras
+- Exemplos práticos por tecnologia
+- Integração com mais IDEs
+- Templates específicos por framework
+- Validação automática de regras
 
 ## 📄 Licença
 
@@ -284,18 +381,14 @@ MIT License - veja [LICENSE](LICENSE) para detalhes.
 - [Cursor Ignore Files](https://docs.cursor.com/en/context/ignore-files)
 - [Model Context Protocol](https://docs.cursor.com/en/context/mcp)
 - [CursorRules.org](https://cursorrules.org) - Comunidade de regras
+- [Mastering Cursor IDE](https://www.cursor.com/blog) - Blog oficial
 
 ---
 
-> **Versão**: 1.0.0  
-> **Última atualização**: Setembro 2025  
-> **Compatibilidade**: Cursor Rules v2
+> **Versão**: 2.0.0  
+> **Regras Ativas**: 16 (00-74)  
+> **Última atualização**: 12 de Setembro de 2025  
+> **Compatibilidade**: Cursor Rules v2  
+> **Status**: ✅ Produção
 
-
-### New Rules (70-74)
-
-- **70-database-standards.mdc** - Database standards for PostgreSQL, MySQL, SQLite, MongoDB, Supabase
-- **71-traefik-proxy.mdc** - Traefik reverse proxy configuration with Docker and SSL
-- **72-memory-optimization.mdc** - Memory management and performance optimization techniques  
-- **73-rule-authoring.mdc** - Meta-practices for creating effective MDC rules
-- **74-fullstack-patterns.mdc** - Full-stack architectures and CI/CD best practices
+**⚠️ Nota**: Para acessar repositórios privados, certifique-se de conceder as permissões necessárias através do [GitHub App](https://github.com/apps/abacusai/installations/select_target).
