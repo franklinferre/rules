@@ -292,10 +292,11 @@ MIT License - veja [LICENSE](LICENSE) para detalhes.
 > **Compatibilidade**: Cursor Rules v2
 
 
-### New Rules (70-74)
+### New Rules (70-75)
 
-- **70-database-standards.mdc** - Database standards for PostgreSQL, MySQL, SQLite, MongoDB, Supabase
+- **70-database-standards.mdc** - Database standards for PostgreSQL, MySQL, SQLite, MongoDB, Supabase with **official Supabase practices integrated**
 - **71-traefik-proxy.mdc** - Traefik reverse proxy configuration with Docker and SSL
 - **72-memory-optimization.mdc** - Memory management and performance optimization techniques  
 - **73-rule-authoring.mdc** - Meta-practices for creating effective MDC rules
 - **74-fullstack-patterns.mdc** - Full-stack architectures and CI/CD best practices
+- **75-supabase-official.mdc** - **NEW**: Official Supabase development standards, templates, and best practices based on official documentation
