@@ -29,6 +29,10 @@ cursor-mdc-rules/
 │   ├── 25-context-optimization.mdc   # NEW: Indexing & References
 │   ├── 30-testing.mdc
 │   ├── 40-security.mdc
+│   ├── 50-frontend-standards.mdc
+│   ├── 51-python-fastapi.mdc
+│   ├── 60-docker-compose.mdc
+│   ├── 76-lovable-integration.mdc    # NEW: Lovable AI-Assisted Development
 │   └── ...
 ├── core/                    # Regras base e globais
 │   ├── global-standards.md

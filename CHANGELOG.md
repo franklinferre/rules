@@ -7,6 +7,21 @@ All notable changes to the Cursor MDC Rules repository will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-09-12
+
+### Added - Lovable Integration & AI-Assisted Development
+
+#### New Rule Files
+- **`76-lovable-integration.mdc`** - Comprehensive Lovable platform integration including:
+  - C.L.E.A.R. framework for AI prompting (Concise, Logical, Explicit, Adaptive, Reflective)
+  - MDC-INT-01 methodology with 4-phase development cycle
+  - Supabase integration best practices and schema change management
+  - Structured prompting protocols for data contracts and error handling
+  - Custom Knowledge file organization and maintenance
+  - Debugging protocols with Chat Mode prioritization
+  - Version control strategies with pinning and rollback procedures
+  - Security, performance, and quality assurance guidelines
+
 ## [1.1.0] - 2025-09-12
 
 ### Added - Cursor Best Practices Integration
