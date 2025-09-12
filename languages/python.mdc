@@ -1,0 +1,385 @@
+
+---
+description: "Python development rules with modern patterns and best practices"
+globs: ["**/*.py", "**/pyproject.toml", "**/requirements.txt"]
+alwaysApply: false
+---
+
+# Python Development Rules
+
+## Core Principles
+- **PEP 8 Compliance**: Follow Python style guide strictly
+- **Type Hints**: Use comprehensive type annotations
+- **Async First**: Prefer async/await for I/O operations
+- **Error Handling**: Implement proper exception handling
+- **Testing**: Write comprehensive tests with pytest
+
+## Code Style and Formatting
+
+### Tools Configuration
+```toml
+# pyproject.toml
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+```
+
+### Code Structure
+```python
+# ✅ Good - Clear imports and structure
+from __future__ import annotations
+
+import asyncio
+from typing import Any, Protocol
+from dataclasses import dataclass
+from pathlib import Path
+
+@dataclass(frozen=True)
+class UserProfile:
+    id: str
+    email: str
+    created_at: datetime
+    
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+```
+
+## Type System
+
+### Type Annotations
+```python
+from typing import TypeVar, Generic, Protocol, Union
+from collections.abc import Sequence, Mapping
+
+T = TypeVar('T')
+U = TypeVar('U')
+
+# ✅ Good - Comprehensive typing
+def process_items(
+    items: Sequence[T],
+    processor: Callable[[T], U],
+    *,
+    batch_size: int = 100
+) -> list[U]:
+    """Process items in batches with proper typing."""
+    return [processor(item) for item in items]
+
+# ✅ Good - Protocol for duck typing
+class Serializable(Protocol):
+    def serialize(self) -> dict[str, Any]: ...
+```
+
+### Modern Union Syntax
+```python
+# ✅ Good - Python 3.10+ union syntax
+def get_user(user_id: str) -> User | None:
+    return user_repository.find_by_id(user_id)
+
+# ✅ Good - Result pattern
+from typing import Union
+Result = Union[tuple[True, T], tuple[False, Exception]]
+
+def safe_operation() -> Result[str]:
+    try:
+        result = risky_operation()
+        return (True, result)
+    except Exception as e:
+        return (False, e)
+```
+
+## Async Programming
+
+### Async Patterns
+```python
+import asyncio
+import aiohttp
+from contextlib import asynccontextmanager
+
+# ✅ Good - Async context manager
+@asynccontextmanager
+async def database_transaction():
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            yield conn
+
+# ✅ Good - Async error handling
+async def fetch_user_data(user_id: str) -> UserData | None:
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"/users/{user_id}") as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return UserData.from_dict(data)
+                return None
+    except asyncio.TimeoutError:
+        logger.warning(f"Timeout fetching user {user_id}")
+        return None
+```
+
+### Concurrency Best Practices
+```python
+# ✅ Good - Proper task management
+async def process_users_concurrently(user_ids: list[str]) -> list[User]:
+    tasks = [fetch_user(user_id) for user_id in user_ids]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    users = []
+    for result in results:
+        if isinstance(result, Exception):
+            logger.error(f"Failed to fetch user: {result}")
+        else:
+            users.append(result)
+    
+    return users
+```
+
+## FastAPI Development
+
+### API Structure
+```python
+from fastapi import FastAPI, HTTPException, Depends
+from pydantic import BaseModel, Field
+from typing import Annotated
+
+app = FastAPI(title="User API", version="1.0.0")
+
+class UserCreate(BaseModel):
+    email: str = Field(..., description="User email address")
+    name: str = Field(..., min_length=1, max_length=100)
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    name: str
+    created_at: datetime
+
+@app.post("/users/", response_model=UserResponse)
+async def create_user(
+    user_data: UserCreate,
+    db: Annotated[Database, Depends(get_database)]
+) -> UserResponse:
+    """Create a new user with validation."""
+    try:
+        user = await user_service.create(db, user_data)
+        return UserResponse.from_orm(user)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+```
+
+### Dependency Injection
+```python
+from functools import lru_cache
+from fastapi import Depends
+
+@lru_cache()
+def get_settings() -> Settings:
+    return Settings()
+
+async def get_database() -> AsyncGenerator[Database, None]:
+    async with database_pool.acquire() as db:
+        yield db
+
+def get_current_user(
+    token: Annotated[str, Depends(oauth2_scheme)],
+    db: Annotated[Database, Depends(get_database)]
+) -> User:
+    return authenticate_user(token, db)
+```
+
+## Django Best Practices
+
+### Model Design
+```python
+from django.db import models
+from django.contrib.auth.models import AbstractUser
+
+class User(AbstractUser):
+    email = models.EmailField(unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'users'
+        indexes = [
+            models.Index(fields=['email']),
+            models.Index(fields=['created_at']),
+        ]
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    bio = models.TextField(blank=True)
+    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
+    
+    def __str__(self) -> str:
+        return f"Profile for {self.user.username}"
+```
+
+## Error Handling
+
+### Custom Exceptions
+```python
+class UserServiceError(Exception):
+    """Base exception for user service errors."""
+    pass
+
+class UserNotFoundError(UserServiceError):
+    """Raised when user is not found."""
+    
+    def __init__(self, user_id: str) -> None:
+        self.user_id = user_id
+        super().__init__(f"User {user_id} not found")
+
+class ValidationError(UserServiceError):
+    """Raised when validation fails."""
+    
+    def __init__(self, field: str, message: str) -> None:
+        self.field = field
+        self.message = message
+        super().__init__(f"Validation error in {field}: {message}")
+```
+
+## Testing
+
+### Pytest Configuration
+```python
+# conftest.py
+import pytest
+import asyncio
+from httpx import AsyncClient
+from fastapi.testclient import TestClient
+
+@pytest.fixture
+def client() -> TestClient:
+    return TestClient(app)
+
+@pytest.fixture
+async def async_client() -> AsyncClient:
+    async with AsyncClient(app=app, base_url="http://test") as client:
+        yield client
+
+@pytest.fixture
+async def db_session():
+    async with database.transaction(rollback=True):
+        yield database
+
+# Test example
+async def test_create_user(async_client: AsyncClient):
+    user_data = {
+        "email": "test@example.com",
+        "name": "Test User"
+    }
+    
+    response = await async_client.post("/users/", json=user_data)
+    
+    assert response.status_code == 201
+    data = response.json()
+    assert data["email"] == user_data["email"]
+    assert "id" in data
+```
+
+## Performance and Optimization
+
+### Caching Strategies
+```python
+from functools import lru_cache
+import redis.asyncio as redis
+
+# Memory caching
+@lru_cache(maxsize=128)
+def expensive_computation(n: int) -> int:
+    return sum(i * i for i in range(n))
+
+# Redis caching
+class CacheService:
+    def __init__(self, redis_client: redis.Redis):
+        self.redis = redis_client
+    
+    async def get_or_set(
+        self, 
+        key: str, 
+        factory: Callable[[], Awaitable[T]], 
+        ttl: int = 3600
+    ) -> T:
+        cached = await self.redis.get(key)
+        if cached:
+            return json.loads(cached)
+        
+        value = await factory()
+        await self.redis.setex(key, ttl, json.dumps(value))
+        return value
+```
+
+## Security Best Practices
+
+### Input Validation
+```python
+from pydantic import BaseModel, validator, Field
+import re
+
+class UserInput(BaseModel):
+    email: str = Field(..., regex=r'^[^@]+@[^@]+\.[^@]+$')
+    password: str = Field(..., min_length=8)
+    
+    @validator('password')
+    def validate_password(cls, v: str) -> str:
+        if not re.search(r'[A-Z]', v):
+            raise ValueError('Password must contain uppercase letter')
+        if not re.search(r'[a-z]', v):
+            raise ValueError('Password must contain lowercase letter')
+        if not re.search(r'\d', v):
+            raise ValueError('Password must contain digit')
+        return v
+```
+
+## Supabase Integration
+
+### Database Operations
+```python
+from supabase import create_client, Client
+from typing import TypedDict
+
+class UserDict(TypedDict):
+    id: str
+    email: str
+    created_at: str
+
+class SupabaseService:
+    def __init__(self, client: Client):
+        self.client = client
+    
+    async def create_user(self, user_data: dict[str, Any]) -> UserDict:
+        result = self.client.table('users').insert(user_data).execute()
+        return result.data[0]
+    
+    async def get_user(self, user_id: str) -> UserDict | None:
+        result = self.client.table('users').select('*').eq('id', user_id).execute()
+        return result.data[0] if result.data else None
+```
+
+## Project Structure
+```
+src/
+├── models/          # Data models and schemas
+├── services/        # Business logic
+├── repositories/    # Data access layer
+├── api/            # API routes and handlers
+├── core/           # Core utilities and config
+├── tests/          # Test files
+└── migrations/     # Database migrations
+```
+
+## Documentation
+- Use docstrings for all public functions and classes
+- Follow Google or NumPy docstring style
+- Include type hints in all function signatures
+- Provide usage examples in module docstrings
+- Maintain comprehensive README with setup instructions

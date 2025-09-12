@@ -1,0 +1,1237 @@
+
+---
+description: "Security and compliance rules implementing R.A.I.L.G.U.A.R.D framework"
+globs: ["**/security.yml", "**/policies/*.yaml", "**/rbac.yml", "**/network-policies.yml"]
+alwaysApply: false
+---
+
+# Security and Compliance Rules (R.A.I.L.G.U.A.R.D Framework)
+
+## Core Principles
+- **Risk-First Reasoning**: Prioritize security goals before implementation
+- **Access Control**: Implement least privilege and zero trust
+- **Input Validation**: Validate and sanitize all inputs
+- **Logging & Monitoring**: Comprehensive security event logging
+- **Guard Rails**: Automated security controls and policies
+- **User Permissions**: Role-based access control (RBAC)
+- **Audit Trails**: Maintain detailed security audit logs
+- **Risk Assessment**: Continuous security risk evaluation
+- **Data Protection**: Encrypt data at rest and in transit
+
+## R.A.I.L.G.U.A.R.D Framework Implementation
+
+### Risk-First Reasoning
+```yaml
+# ✅ Good - Security risk assessment template
+security_assessment:
+  threat_model:
+    assets:
+      - name: "User Data"
+        classification: "PII"
+        impact: "High"
+        threats:
+          - "Data breach"
+          - "Unauthorized access"
+          - "Data corruption"
+      
+      - name: "Application Code"
+        classification: "Proprietary"
+        impact: "Medium"
+        threats:
+          - "Code injection"
+          - "Supply chain attacks"
+          - "Intellectual property theft"
+    
+    attack_vectors:
+      - name: "Web Application"
+        likelihood: "High"
+        impact: "High"
+        mitigations:
+          - "Input validation"
+          - "Authentication"
+          - "Authorization"
+          - "HTTPS enforcement"
+      
+      - name: "API Endpoints"
+        likelihood: "Medium"
+        impact: "High"
+        mitigations:
+          - "Rate limiting"
+          - "API authentication"
+          - "Request validation"
+          - "CORS policies"
+    
+    compliance_requirements:
+      - "GDPR"
+      - "SOC 2"
+      - "ISO 27001"
+      - "OWASP Top 10"
+
+  security_controls:
+    preventive:
+      - "Multi-factor authentication"
+      - "Network segmentation"
+      - "Input validation"
+      - "Encryption"
+    
+    detective:
+      - "Security monitoring"
+      - "Intrusion detection"
+      - "Log analysis"
+      - "Vulnerability scanning"
+    
+    corrective:
+      - "Incident response"
+      - "Backup and recovery"
+      - "Patch management"
+      - "Security updates"
+```
+
+### Access Control (Zero Trust)
+```yaml
+# ✅ Good - Kubernetes RBAC configuration
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: security-admin
+rules:
+- apiGroups: [""]
+  resources: ["secrets", "configmaps"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["networkpolicies"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: production
+  name: app-developer
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "configmaps"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list"]
+  resourceNames: ["app-secrets"]  # Restrict to specific secrets
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: app-developers
+  namespace: production
+subjects:
+- kind: User
+  name: developer@example.com
+  apiGroup: rbac.authorization.k8s.io
+- kind: Group
+  name: developers
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: app-developer
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# ✅ Good - Network policies for micro-segmentation
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all-default
+  namespace: production
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-app-to-db
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: myapp
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: postgres
+    ports:
+    - protocol: TCP
+      port: 5432
+  - to: []  # Allow DNS
+    ports:
+    - protocol: UDP
+      port: 53
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-app
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: myapp
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 3000
+```
+
+### Input Validation Framework
+```javascript
+// ✅ Good - Comprehensive input validation
+const Joi = require('joi');
+const DOMPurify = require('isomorphic-dompurify');
+const rateLimit = require('express-rate-limit');
+
+// Input validation schemas
+const schemas = {
+  user: Joi.object({
+    email: Joi.string()
+      .email({ minDomainSegments: 2 })
+      .max(255)
+      .required()
+      .messages({
+        'string.email': 'Please provide a valid email address',
+        'string.max': 'Email must not exceed 255 characters'
+      }),
+    
+    password: Joi.string()
+      .min(8)
+      .max(128)
+      .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+      .required()
+      .messages({
+        'string.pattern.base': 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
+      }),
+    
+    name: Joi.string()
+      .min(2)
+      .max(100)
+      .pattern(/^[a-zA-Z\s'-]+$/)
+      .required()
+      .messages({
+        'string.pattern.base': 'Name can only contain letters, spaces, hyphens, and apostrophes'
+      }),
+    
+    age: Joi.number()
+      .integer()
+      .min(13)
+      .max(120)
+      .optional(),
+    
+    bio: Joi.string()
+      .max(1000)
+      .optional()
+      .custom((value, helpers) => {
+        // Sanitize HTML content
+        const sanitized = DOMPurify.sanitize(value, {
+          ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'p', 'br'],
+          ALLOWED_ATTR: []
+        });
+        return sanitized;
+      })
+  }),
+  
+  apiKey: Joi.object({
+    name: Joi.string()
+      .min(3)
+      .max(50)
+      .pattern(/^[a-zA-Z0-9_-]+$/)
+      .required(),
+    
+    permissions: Joi.array()
+      .items(Joi.string().valid('read', 'write', 'admin'))
+      .min(1)
+      .required(),
+    
+    expiresAt: Joi.date()
+      .greater('now')
+      .required()
+  })
+};
+
+// Security middleware
+class SecurityMiddleware {
+  static rateLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per windowMs
+    message: {
+      error: 'Too many requests from this IP, please try again later.',
+      retryAfter: '15 minutes'
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (req, res) => {
+      logger.warn('Rate limit exceeded', {
+        ip: req.ip,
+        userAgent: req.get('User-Agent'),
+        path: req.path
+      });
+      res.status(429).json({
+        error: 'Too many requests from this IP, please try again later.',
+        retryAfter: '15 minutes'
+      });
+    }
+  });
+
+  static strictRateLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5, // Stricter limit for sensitive endpoints
+    message: {
+      error: 'Too many attempts, please try again later.',
+      retryAfter: '15 minutes'
+    }
+  });
+
+  static validateInput(schema) {
+    return (req, res, next) => {
+      const { error, value } = schema.validate(req.body, {
+        abortEarly: false,
+        stripUnknown: true,
+        convert: true
+      });
+
+      if (error) {
+        const validationErrors = error.details.map(detail => ({
+          field: detail.path.join('.'),
+          message: detail.message,
+          value: detail.context?.value
+        }));
+
+        logger.warn('Input validation failed', {
+          errors: validationErrors,
+          ip: req.ip,
+          path: req.path
+        });
+
+        return res.status(400).json({
+          error: 'Validation failed',
+          details: validationErrors
+        });
+      }
+
+      req.validatedBody = value;
+      next();
+    };
+  }
+
+  static sanitizeHeaders(req, res, next) {
+    // Remove potentially dangerous headers
+    delete req.headers['x-forwarded-host'];
+    delete req.headers['x-original-url'];
+    
+    // Validate Content-Type for POST/PUT requests
+    if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+      const contentType = req.get('Content-Type');
+      if (!contentType || !contentType.includes('application/json')) {
+        return res.status(400).json({
+          error: 'Content-Type must be application/json'
+        });
+      }
+    }
+
+    next();
+  }
+
+  static preventXSS(req, res, next) {
+    // Set security headers
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Content-Security-Policy', 
+      "default-src 'self'; " +
+      "script-src 'self' 'unsafe-inline'; " +
+      "style-src 'self' 'unsafe-inline'; " +
+      "img-src 'self' data: https:; " +
+      "font-src 'self'; " +
+      "connect-src 'self'; " +
+      "frame-ancestors 'none';"
+    );
+
+    next();
+  }
+
+  static detectSQLInjection(req, res, next) {
+    const sqlPatterns = [
+      /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|UNION)\b)/i,
+      /(\b(OR|AND)\s+\d+\s*=\s*\d+)/i,
+      /(--|\/\*|\*\/|;)/,
+      /(\b(SCRIPT|JAVASCRIPT|VBSCRIPT)\b)/i
+    ];
+
+    const checkValue = (value) => {
+      if (typeof value === 'string') {
+        return sqlPatterns.some(pattern => pattern.test(value));
+      }
+      if (typeof value === 'object' && value !== null) {
+        return Object.values(value).some(checkValue);
+      }
+      return false;
+    };
+
+    const suspicious = checkValue(req.body) || 
+                     checkValue(req.query) || 
+                     checkValue(req.params);
+
+    if (suspicious) {
+      logger.error('Potential SQL injection detected', {
+        ip: req.ip,
+        userAgent: req.get('User-Agent'),
+        path: req.path,
+        body: req.body,
+        query: req.query,
+        params: req.params
+      });
+
+      return res.status(400).json({
+        error: 'Invalid input detected'
+      });
+    }
+
+    next();
+  }
+}
+
+// Usage in routes
+app.use(SecurityMiddleware.sanitizeHeaders);
+app.use(SecurityMiddleware.preventXSS);
+app.use(SecurityMiddleware.detectSQLInjection);
+app.use('/api/', SecurityMiddleware.rateLimiter);
+
+app.post('/api/users', 
+  SecurityMiddleware.strictRateLimiter,
+  SecurityMiddleware.validateInput(schemas.user),
+  async (req, res) => {
+    try {
+      const user = await userService.createUser(req.validatedBody);
+      res.status(201).json({ user });
+    } catch (error) {
+      logger.error('User creation failed', { error: error.message });
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+```
+
+### Logging & Monitoring Security Events
+```javascript
+// ✅ Good - Security event logging
+const winston = require('winston');
+const { ElasticsearchTransport } = require('winston-elasticsearch');
+
+// Security-focused logger configuration
+const securityLogger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.errors({ stack: true }),
+    winston.format.json(),
+    winston.format.printf(({ timestamp, level, message, ...meta }) => {
+      return JSON.stringify({
+        timestamp,
+        level,
+        message,
+        event_type: 'security',
+        ...meta
+      });
+    })
+  ),
+  transports: [
+    new winston.transports.File({ 
+      filename: '/var/log/security.log',
+      maxsize: 10485760, // 10MB
+      maxFiles: 10
+    }),
+    new ElasticsearchTransport({
+      level: 'info',
+      clientOpts: { node: process.env.ELASTICSEARCH_URL },
+      index: 'security-logs'
+    })
+  ]
+});
+
+class SecurityEventLogger {
+  static logAuthenticationAttempt(req, success, userId = null, reason = null) {
+    securityLogger.info('Authentication attempt', {
+      event: 'auth_attempt',
+      success,
+      user_id: userId,
+      ip_address: req.ip,
+      user_agent: req.get('User-Agent'),
+      timestamp: new Date().toISOString(),
+      reason,
+      session_id: req.sessionID
+    });
+  }
+
+  static logAuthorizationFailure(req, userId, resource, action) {
+    securityLogger.warn('Authorization failure', {
+      event: 'auth_failure',
+      user_id: userId,
+      resource,
+      action,
+      ip_address: req.ip,
+      user_agent: req.get('User-Agent'),
+      timestamp: new Date().toISOString(),
+      path: req.path,
+      method: req.method
+    });
+  }
+
+  static logSuspiciousActivity(req, activityType, details) {
+    securityLogger.error('Suspicious activity detected', {
+      event: 'suspicious_activity',
+      activity_type: activityType,
+      details,
+      ip_address: req.ip,
+      user_agent: req.get('User-Agent'),
+      timestamp: new Date().toISOString(),
+      path: req.path,
+      method: req.method,
+      headers: req.headers
+    });
+  }
+
+  static logDataAccess(userId, resource, action, success) {
+    securityLogger.info('Data access', {
+      event: 'data_access',
+      user_id: userId,
+      resource,
+      action,
+      success,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  static logPrivilegeEscalation(userId, fromRole, toRole, success) {
+    securityLogger.warn('Privilege escalation attempt', {
+      event: 'privilege_escalation',
+      user_id: userId,
+      from_role: fromRole,
+      to_role: toRole,
+      success,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  static logSecurityPolicyViolation(req, policyType, violation) {
+    securityLogger.error('Security policy violation', {
+      event: 'policy_violation',
+      policy_type: policyType,
+      violation,
+      ip_address: req.ip,
+      user_agent: req.get('User-Agent'),
+      timestamp: new Date().toISOString(),
+      path: req.path
+    });
+  }
+}
+
+// Integration with authentication middleware
+const authMiddleware = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  
+  if (!token) {
+    SecurityEventLogger.logAuthenticationAttempt(req, false, null, 'No token provided');
+    return res.status(401).json({ error: 'No token provided' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    SecurityEventLogger.logAuthenticationAttempt(req, true, decoded.userId);
+    next();
+  } catch (error) {
+    SecurityEventLogger.logAuthenticationAttempt(req, false, null, error.message);
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+};
+```
+
+### Guard Rails (Automated Security Controls)
+```yaml
+# ✅ Good - Pod Security Standards
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+
+---
+# ✅ Good - Security Context Constraints
+apiVersion: v1
+kind: SecurityContextConstraints
+metadata:
+  name: restricted-scc
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegedContainer: false
+allowedCapabilities: []
+defaultAddCapabilities: []
+requiredDropCapabilities:
+- ALL
+fsGroup:
+  type: MustRunAs
+  ranges:
+  - min: 1000
+  - max: 65535
+runAsUser:
+  type: MustRunAsNonRoot
+seLinuxContext:
+  type: MustRunAs
+supplementalGroups:
+  type: MustRunAs
+  ranges:
+  - min: 1000
+  - max: 65535
+volumes:
+- configMap
+- downwardAPI
+- emptyDir
+- persistentVolumeClaim
+- projected
+- secret
+
+---
+# ✅ Good - Open Policy Agent (OPA) Gatekeeper policies
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8srequiredsecuritycontext
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sRequiredSecurityContext
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            runAsNonRoot:
+              type: boolean
+            readOnlyRootFilesystem:
+              type: boolean
+            allowPrivilegeEscalation:
+              type: boolean
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8srequiredsecuritycontext
+        
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          not container.securityContext.runAsNonRoot
+          msg := "Container must run as non-root user"
+        }
+        
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          not container.securityContext.readOnlyRootFilesystem
+          msg := "Container must have read-only root filesystem"
+        }
+        
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          container.securityContext.allowPrivilegeEscalation != false
+          msg := "Container must not allow privilege escalation"
+        }
+
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sRequiredSecurityContext
+metadata:
+  name: must-have-security-context
+spec:
+  match:
+    kinds:
+      - apiGroups: ["apps"]
+        kinds: ["Deployment"]
+    namespaces: ["production", "staging"]
+  parameters:
+    runAsNonRoot: true
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+
+---
+# ✅ Good - Image security policy
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8sallowedrepos
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sAllowedRepos
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            repos:
+              type: array
+              items:
+                type: string
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8sallowedrepos
+        
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          satisfied := [good | repo = input.parameters.repos[_] ; good = startswith(container.image, repo)]
+          not any(satisfied)
+          msg := sprintf("Container image '%v' comes from disallowed registry", [container.image])
+        }
+
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sAllowedRepos
+metadata:
+  name: allowed-repos
+spec:
+  match:
+    kinds:
+      - apiGroups: ["apps"]
+        kinds: ["Deployment"]
+  parameters:
+    repos:
+      - "myregistry.com/"
+      - "gcr.io/my-project/"
+      - "docker.io/library/"
+```
+
+### User Permissions (RBAC)
+```yaml
+# ✅ Good - Comprehensive RBAC setup
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app-service-account
+  namespace: production
+automountServiceAccountToken: true
+
+---
+# Application-specific role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: production
+  name: app-role
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch"]
+  resourceNames: ["app-config", "app-secrets"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get"]
+  resourceNames: ["app-secrets", "db-credentials"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: app-role-binding
+  namespace: production
+subjects:
+- kind: ServiceAccount
+  name: app-service-account
+  namespace: production
+roleRef:
+  kind: Role
+  name: app-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Database admin role (more privileged)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: production
+  name: db-admin-role
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  resourceNames: ["db-*"]
+- apiGroups: [""]
+  resources: ["persistentvolumeclaims"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+- apiGroups: ["apps"]
+  resources: ["statefulsets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+
+---
+# Security admin cluster role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: security-admin
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["networkpolicies"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["policy"]
+  resources: ["podsecuritypolicies"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+```
+
+### Audit Trails
+```yaml
+# ✅ Good - Kubernetes audit policy
+apiVersion: audit.k8s.io/v1
+kind: Policy
+rules:
+# Log security-sensitive resources at RequestResponse level
+- level: RequestResponse
+  resources:
+  - group: ""
+    resources: ["secrets", "configmaps"]
+  - group: "rbac.authorization.k8s.io"
+    resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+
+# Log authentication and authorization failures
+- level: Request
+  users: ["system:anonymous"]
+  
+# Log privilege escalation attempts
+- level: RequestResponse
+  verbs: ["create", "update", "patch"]
+  resources:
+  - group: "rbac.authorization.k8s.io"
+    resources: ["rolebindings", "clusterrolebindings"]
+
+# Log access to sensitive namespaces
+- level: Request
+  namespaces: ["kube-system", "kube-public", "kube-node-lease"]
+
+# Log exec and portforward commands
+- level: Request
+  resources:
+  - group: ""
+    resources: ["pods/exec", "pods/portforward", "pods/proxy"]
+
+# Log service account token requests
+- level: Request
+  resources:
+  - group: ""
+    resources: ["serviceaccounts/token"]
+
+# Don't log routine operations
+- level: None
+  users: ["system:kube-proxy"]
+  verbs: ["watch"]
+  resources:
+  - group: ""
+    resources: ["endpoints", "services"]
+
+- level: None
+  users: ["system:kube-controller-manager"]
+  verbs: ["get", "update"]
+  namespaces: ["kube-system"]
+  resources:
+  - group: ""
+    resources: ["endpoints"]
+
+# Default level for everything else
+- level: Metadata
+```
+
+### Risk Assessment Automation
+```python
+# ✅ Good - Automated security risk assessment
+import json
+import requests
+from datetime import datetime, timedelta
+from typing import Dict, List, Any
+
+class SecurityRiskAssessment:
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+        self.risk_scores = {}
+        
+    def assess_vulnerability_risk(self) -> Dict[str, Any]:
+        """Assess risk from vulnerability scans"""
+        vulnerabilities = self._get_vulnerability_data()
+        
+        risk_score = 0
+        critical_vulns = 0
+        high_vulns = 0
+        
+        for vuln in vulnerabilities:
+            severity = vuln.get('severity', '').lower()
+            if severity == 'critical':
+                risk_score += 10
+                critical_vulns += 1
+            elif severity == 'high':
+                risk_score += 5
+                high_vulns += 1
+            elif severity == 'medium':
+                risk_score += 2
+            elif severity == 'low':
+                risk_score += 1
+        
+        return {
+            'risk_score': min(risk_score, 100),  # Cap at 100
+            'critical_vulnerabilities': critical_vulns,
+            'high_vulnerabilities': high_vulns,
+            'total_vulnerabilities': len(vulnerabilities),
+            'assessment_time': datetime.utcnow().isoformat()
+        }
+    
+    def assess_access_control_risk(self) -> Dict[str, Any]:
+        """Assess risk from access control misconfigurations"""
+        rbac_data = self._get_rbac_data()
+        
+        risk_factors = []
+        risk_score = 0
+        
+        # Check for overprivileged service accounts
+        for sa in rbac_data.get('service_accounts', []):
+            if self._is_overprivileged(sa):
+                risk_factors.append(f"Overprivileged service account: {sa['name']}")
+                risk_score += 15
+        
+        # Check for cluster-admin bindings
+        for binding in rbac_data.get('cluster_role_bindings', []):
+            if binding.get('role_ref', {}).get('name') == 'cluster-admin':
+                risk_factors.append(f"Cluster-admin binding: {binding['name']}")
+                risk_score += 20
+        
+        # Check for wildcard permissions
+        for role in rbac_data.get('roles', []):
+            if self._has_wildcard_permissions(role):
+                risk_factors.append(f"Wildcard permissions in role: {role['name']}")
+                risk_score += 10
+        
+        return {
+            'risk_score': min(risk_score, 100),
+            'risk_factors': risk_factors,
+            'assessment_time': datetime.utcnow().isoformat()
+        }
+    
+    def assess_network_security_risk(self) -> Dict[str, Any]:
+        """Assess network security risks"""
+        network_policies = self._get_network_policies()
+        services = self._get_services()
+        
+        risk_score = 0
+        risk_factors = []
+        
+        # Check for missing network policies
+        namespaces_without_policies = self._find_namespaces_without_policies(
+            network_policies
+        )
+        
+        for ns in namespaces_without_policies:
+            risk_factors.append(f"No network policies in namespace: {ns}")
+            risk_score += 10
+        
+        # Check for services without proper restrictions
+        for service in services:
+            if service.get('type') == 'LoadBalancer' and not self._has_source_ranges(service):
+                risk_factors.append(f"LoadBalancer service without source ranges: {service['name']}")
+                risk_score += 15
+        
+        return {
+            'risk_score': min(risk_score, 100),
+            'risk_factors': risk_factors,
+            'assessment_time': datetime.utcnow().isoformat()
+        }
+    
+    def generate_risk_report(self) -> Dict[str, Any]:
+        """Generate comprehensive risk assessment report"""
+        vuln_risk = self.assess_vulnerability_risk()
+        access_risk = self.assess_access_control_risk()
+        network_risk = self.assess_network_security_risk()
+        
+        # Calculate overall risk score (weighted average)
+        overall_risk = (
+            vuln_risk['risk_score'] * 0.4 +
+            access_risk['risk_score'] * 0.35 +
+            network_risk['risk_score'] * 0.25
+        )
+        
+        # Determine risk level
+        if overall_risk >= 80:
+            risk_level = 'CRITICAL'
+        elif overall_risk >= 60:
+            risk_level = 'HIGH'
+        elif overall_risk >= 40:
+            risk_level = 'MEDIUM'
+        else:
+            risk_level = 'LOW'
+        
+        report = {
+            'overall_risk_score': round(overall_risk, 2),
+            'risk_level': risk_level,
+            'assessment_time': datetime.utcnow().isoformat(),
+            'vulnerability_assessment': vuln_risk,
+            'access_control_assessment': access_risk,
+            'network_security_assessment': network_risk,
+            'recommendations': self._generate_recommendations(
+                vuln_risk, access_risk, network_risk
+            )
+        }
+        
+        # Send alerts for high-risk findings
+        if overall_risk >= 60:
+            self._send_security_alert(report)
+        
+        return report
+    
+    def _get_vulnerability_data(self) -> List[Dict[str, Any]]:
+        """Fetch vulnerability data from security scanner"""
+        # Implementation would integrate with tools like Trivy, Clair, etc.
+        return []
+    
+    def _get_rbac_data(self) -> Dict[str, Any]:
+        """Fetch RBAC configuration from Kubernetes"""
+        # Implementation would use Kubernetes API
+        return {}
+    
+    def _get_network_policies(self) -> List[Dict[str, Any]]:
+        """Fetch network policies from Kubernetes"""
+        return []
+    
+    def _get_services(self) -> List[Dict[str, Any]]:
+        """Fetch services from Kubernetes"""
+        return []
+    
+    def _is_overprivileged(self, service_account: Dict[str, Any]) -> bool:
+        """Check if service account has excessive privileges"""
+        # Implementation would analyze bound roles and permissions
+        return False
+    
+    def _has_wildcard_permissions(self, role: Dict[str, Any]) -> bool:
+        """Check if role has wildcard permissions"""
+        # Implementation would check for '*' in resources, verbs, etc.
+        return False
+    
+    def _find_namespaces_without_policies(self, policies: List[Dict[str, Any]]) -> List[str]:
+        """Find namespaces without network policies"""
+        return []
+    
+    def _has_source_ranges(self, service: Dict[str, Any]) -> bool:
+        """Check if LoadBalancer service has source IP ranges configured"""
+        return False
+    
+    def _generate_recommendations(self, vuln_risk, access_risk, network_risk) -> List[str]:
+        """Generate security recommendations based on risk assessment"""
+        recommendations = []
+        
+        if vuln_risk['critical_vulnerabilities'] > 0:
+            recommendations.append("Immediately patch critical vulnerabilities")
+        
+        if access_risk['risk_score'] > 50:
+            recommendations.append("Review and reduce excessive RBAC permissions")
+        
+        if network_risk['risk_score'] > 50:
+            recommendations.append("Implement network policies for micro-segmentation")
+        
+        return recommendations
+    
+    def _send_security_alert(self, report: Dict[str, Any]):
+        """Send security alert for high-risk findings"""
+        # Implementation would integrate with alerting systems
+        pass
+
+# Usage
+if __name__ == "__main__":
+    config = {
+        'kubernetes_api': 'https://k8s-api.example.com',
+        'vulnerability_scanner': 'https://trivy.example.com',
+        'alert_webhook': 'https://alerts.example.com/webhook'
+    }
+    
+    assessment = SecurityRiskAssessment(config)
+    report = assessment.generate_risk_report()
+    
+    print(json.dumps(report, indent=2))
+```
+
+### Data Protection (Encryption)
+```yaml
+# ✅ Good - Encryption at rest configuration
+apiVersion: v1
+kind: Secret
+metadata:
+  name: encryption-config
+type: Opaque
+data:
+  config.yaml: |
+    kind: EncryptionConfiguration
+    apiVersion: apiserver.config.k8s.io/v1
+    resources:
+    - resources:
+      - secrets
+      - configmaps
+      providers:
+      - aescbc:
+          keys:
+          - name: key1
+            secret: <base64-encoded-32-byte-key>
+      - identity: {}
+
+---
+# ✅ Good - TLS configuration for services
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tls-secret
+  namespace: production
+type: kubernetes.io/tls
+data:
+  tls.crt: <base64-encoded-certificate>
+  tls.key: <base64-encoded-private-key>
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: secure-ingress
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.2 TLSv1.3"
+    nginx.ingress.kubernetes.io/ssl-ciphers: "ECDHE-RSA-AES128-GCM-SHA256,ECDHE-RSA-AES256-GCM-SHA384"
+spec:
+  tls:
+  - hosts:
+    - secure.example.com
+    secretName: tls-secret
+  rules:
+  - host: secure.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: app-service
+            port:
+              number: 80
+
+---
+# ✅ Good - Database encryption configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+data:
+  postgresql.conf: |
+    # SSL Configuration
+    ssl = on
+    ssl_cert_file = '/etc/ssl/certs/server.crt'
+    ssl_key_file = '/etc/ssl/private/server.key'
+    ssl_ca_file = '/etc/ssl/certs/ca.crt'
+    ssl_crl_file = ''
+    ssl_protocols = 'TLSv1.2,TLSv1.3'
+    ssl_ciphers = 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384'
+    ssl_prefer_server_ciphers = on
+    
+    # Encryption at rest
+    data_encryption = on
+    encryption_key_command = 'echo $POSTGRES_ENCRYPTION_KEY'
+    
+    # Logging for security
+    log_connections = on
+    log_disconnections = on
+    log_statement = 'all'
+    log_line_prefix = '%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h '
+```
+
+## Security Compliance Checklist
+
+### OWASP Top 10 Compliance
+- [ ] **A01 Broken Access Control**: Implement proper RBAC and authorization
+- [ ] **A02 Cryptographic Failures**: Use strong encryption for data at rest and in transit
+- [ ] **A03 Injection**: Validate and sanitize all inputs
+- [ ] **A04 Insecure Design**: Follow secure design principles
+- [ ] **A05 Security Misconfiguration**: Harden all configurations
+- [ ] **A06 Vulnerable Components**: Keep dependencies updated
+- [ ] **A07 Authentication Failures**: Implement strong authentication
+- [ ] **A08 Software Integrity Failures**: Verify software integrity
+- [ ] **A09 Logging Failures**: Implement comprehensive logging
+- [ ] **A10 Server-Side Request Forgery**: Validate server-side requests
+
+### SOC 2 Compliance
+- [ ] **Security**: Implement access controls and monitoring
+- [ ] **Availability**: Ensure system availability and disaster recovery
+- [ ] **Processing Integrity**: Validate data processing accuracy
+- [ ] **Confidentiality**: Protect sensitive information
+- [ ] **Privacy**: Handle personal information appropriately
+
+### GDPR Compliance
+- [ ] **Data Minimization**: Collect only necessary data
+- [ ] **Purpose Limitation**: Use data only for stated purposes
+- [ ] **Storage Limitation**: Retain data only as long as necessary
+- [ ] **Data Subject Rights**: Implement rights to access, rectify, erase
+- [ ] **Privacy by Design**: Build privacy into systems from the start
+
+## Best Practices Summary
+
+### Security Culture
+- **Shift Left**: Integrate security early in development
+- **Zero Trust**: Never trust, always verify
+- **Defense in Depth**: Multiple layers of security controls
+- **Continuous Monitoring**: Real-time security monitoring
+- **Incident Response**: Prepared response procedures
+
+### Automation
+- **Security as Code**: Version control security configurations
+- **Automated Scanning**: Regular vulnerability and compliance scans
+- **Policy Enforcement**: Automated policy compliance checks
+- **Threat Detection**: Automated threat detection and response
+
+### Training and Awareness
+- **Security Training**: Regular security awareness training
+- **Secure Coding**: Secure development practices
+- **Incident Simulation**: Regular security incident drills
+- **Knowledge Sharing**: Share security knowledge across teams
+

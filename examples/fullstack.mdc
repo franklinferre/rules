@@ -1,0 +1,728 @@
+
+---
+description: "Full-stack application examples with modern architecture patterns"
+globs: ["**/examples/**", "**/templates/**", "**/samples/**"]
+alwaysApply: false
+---
+
+# Full-Stack Application Examples
+
+## Modern Full-Stack Architecture
+
+### Next.js + Supabase + TypeScript
+```typescript
+// ✅ Good - Complete full-stack setup
+// app/layout.tsx
+import { Inter } from 'next/font/google'
+import { Providers } from './providers'
+import './globals.css'
+
+const inter = Inter({ subsets: ['latin'] })
+
+export const metadata = {
+  title: 'Modern Full-Stack App',
+  description: 'Built with Next.js, Supabase, and TypeScript',
+}
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="en">
+      <body className={inter.className}>
+        <Providers>
+          {children}
+        </Providers>
+      </body>
+    </html>
+  )
+}
+
+// app/providers.tsx
+'use client'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { SessionContextProvider } from '@supabase/auth-helpers-react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import { useState } from 'react'
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 60 * 1000, // 1 minute
+        retry: 1,
+      },
+    },
+  }))
+  
+  const [supabase] = useState(() => createClientComponentClient())
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <SessionContextProvider supabaseClient={supabase}>
+        {children}
+        <ReactQueryDevtools initialIsOpen={false} />
+      </SessionContextProvider>
+    </QueryClientProvider>
+  )
+}
+
+// lib/supabase/client.ts
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { Database } from './types'
+
+export const supabase = createClientComponentClient<Database>()
+
+// lib/supabase/server.ts
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
+import { Database } from './types'
+
+export const createServerSupabaseClient = () => {
+  return createServerComponentClient<Database>({ cookies })
+}
+
+// lib/hooks/useAuth.ts
+import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Database } from '@/lib/supabase/types'
+
+export function useAuth() {
+  const user = useUser()
+  const supabase = useSupabaseClient<Database>()
+  const queryClient = useQueryClient()
+
+  const signIn = useMutation({
+    mutationFn: async ({ email, password }: { email: string; password: string }) => {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user'] })
+    },
+  })
+
+  const signUp = useMutation({
+    mutationFn: async ({ email, password }: { email: string; password: string }) => {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      })
+      if (error) throw error
+      return data
+    },
+  })
+
+  const signOut = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.clear()
+    },
+  })
+
+  return {
+    user,
+    signIn,
+    signUp,
+    signOut,
+    isLoading: signIn.isPending || signUp.isPending || signOut.isPending,
+  }
+}
+
+// components/auth/LoginForm.tsx
+'use client'
+import { useState } from 'react'
+import { useAuth } from '@/lib/hooks/useAuth'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+
+export function LoginForm() {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const { signIn, isLoading } = useAuth()
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      await signIn.mutateAsync({ email, password })
+    } catch (error) {
+      console.error('Login failed:', error)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <Label htmlFor="email">Email</Label>
+        <Input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+      </div>
+      <div>
+        <Label htmlFor="password">Password</Label>
+        <Input
+          id="password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+      </div>
+      <Button type="submit" disabled={isLoading}>
+        {isLoading ? 'Signing in...' : 'Sign In'}
+      </Button>
+    </form>
+  )
+}
+```
+
+### FastAPI + PostgreSQL + React
+```python
+# ✅ Good - FastAPI backend structure
+# main.py
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer
+from sqlalchemy.orm import Session
+from contextlib import asynccontextmanager
+import uvicorn
+
+from app.core.config import settings
+from app.core.database import engine, get_db
+from app.core.auth import get_current_user
+from app.models import Base
+from app.routers import auth, users, posts
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    Base.metadata.create_all(bind=engine)
+    yield
+    # Shutdown
+    pass
+
+app = FastAPI(
+    title="Full-Stack API",
+    description="Modern FastAPI backend",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.ALLOWED_HOSTS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include routers
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(users.router, prefix="/api/users", tags=["users"])
+app.include_router(posts.router, prefix="/api/posts", tags=["posts"])
+
+@app.get("/")
+async def root():
+    return {"message": "Full-Stack API is running"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
+if __name__ == "__main__":
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=settings.DEBUG
+    )
+
+# app/models/user.py
+from sqlalchemy import Column, Integer, String, DateTime, Boolean
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+from app.core.database import Base
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    username = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    is_active = Column(Boolean, default=True)
+    is_superuser = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    posts = relationship("Post", back_populates="author")
+
+# app/routers/users.py
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from typing import List
+
+from app.core.database import get_db
+from app.core.auth import get_current_user
+from app.models.user import User
+from app.schemas.user import UserCreate, UserResponse, UserUpdate
+from app.services.user_service import UserService
+
+router = APIRouter()
+
+@router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def create_user(
+    user_data: UserCreate,
+    db: Session = Depends(get_db)
+):
+    user_service = UserService(db)
+    return await user_service.create_user(user_data)
+
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_profile(
+    current_user: User = Depends(get_current_user)
+):
+    return current_user
+
+@router.get("/{user_id}", response_model=UserResponse)
+async def get_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    user_service = UserService(db)
+    user = await user_service.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    return user
+
+@router.put("/{user_id}", response_model=UserResponse)
+async def update_user(
+    user_id: int,
+    user_data: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.id != user_id and not current_user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions"
+        )
+    
+    user_service = UserService(db)
+    return await user_service.update_user(user_id, user_data)
+```
+
+### React Frontend with TypeScript
+```typescript
+// ✅ Good - React frontend structure
+// src/App.tsx
+import React from 'react'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import { Toaster } from 'react-hot-toast'
+
+import { AuthProvider } from './contexts/AuthContext'
+import { ProtectedRoute } from './components/ProtectedRoute'
+import { Layout } from './components/Layout'
+import { Home } from './pages/Home'
+import { Login } from './pages/Login'
+import { Register } from './pages/Register'
+import { Dashboard } from './pages/Dashboard'
+import { Profile } from './pages/Profile'
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      retry: 1,
+    },
+  },
+})
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <Router>
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <Profile />
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </Layout>
+        </Router>
+        <Toaster position="top-right" />
+        <ReactQueryDevtools initialIsOpen={false} />
+      </AuthProvider>
+    </QueryClientProvider>
+  )
+}
+
+export default App
+
+// src/hooks/useUsers.ts
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { api } from '../services/api'
+import { User, CreateUserData, UpdateUserData } from '../types/user'
+
+export function useUsers() {
+  return useQuery({
+    queryKey: ['users'],
+    queryFn: () => api.get<User[]>('/users').then(res => res.data),
+  })
+}
+
+export function useUser(id: number) {
+  return useQuery({
+    queryKey: ['users', id],
+    queryFn: () => api.get<User>(`/users/${id}`).then(res => res.data),
+    enabled: !!id,
+  })
+}
+
+export function useCreateUser() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: (userData: CreateUserData) =>
+      api.post<User>('/users', userData).then(res => res.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+    },
+  })
+}
+
+export function useUpdateUser() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: UpdateUserData }) =>
+      api.put<User>(`/users/${id}`, data).then(res => res.data),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['users', data.id], data)
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+    },
+  })
+}
+
+// src/components/UserList.tsx
+import React from 'react'
+import { useUsers } from '../hooks/useUsers'
+import { LoadingSpinner } from './LoadingSpinner'
+import { ErrorMessage } from './ErrorMessage'
+import { UserCard } from './UserCard'
+
+export function UserList() {
+  const { data: users, isLoading, error } = useUsers()
+
+  if (isLoading) return <LoadingSpinner />
+  if (error) return <ErrorMessage message="Failed to load users" />
+  if (!users?.length) return <div>No users found</div>
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {users.map(user => (
+        <UserCard key={user.id} user={user} />
+      ))}
+    </div>
+  )
+}
+```
+
+## Microservices Architecture
+
+### Docker Compose for Development
+```yaml
+# ✅ Good - Complete development environment
+version: '3.8'
+
+services:
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_WS_URL=ws://localhost:8001
+    depends_on:
+      - backend
+      - websocket
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/appdb
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=your-secret-key
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # WebSocket service
+  websocket:
+    build:
+      context: ./websocket
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8001:8001"
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: appdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and sessions
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - frontend
+      - backend
+      - websocket
+
+volumes:
+  postgres_data:
+  redis_data:
+```
+
+### Kubernetes Deployment
+```yaml
+# ✅ Good - Production Kubernetes deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fullstack-app
+  labels:
+    app: fullstack-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: fullstack-app
+  template:
+    metadata:
+      labels:
+        app: fullstack-app
+    spec:
+      containers:
+      - name: frontend
+        image: myregistry.com/frontend:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: REACT_APP_API_URL
+          value: "https://api.example.com"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      
+      - name: backend
+        image: myregistry.com/backend:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: redis-url
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fullstack-service
+spec:
+  selector:
+    app: fullstack-app
+  ports:
+  - name: frontend
+    port: 80
+    targetPort: 3000
+  - name: backend
+    port: 8000
+    targetPort: 8000
+  type: ClusterIP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fullstack-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  tls:
+  - hosts:
+    - example.com
+    - api.example.com
+    secretName: fullstack-tls
+  rules:
+  - host: example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: fullstack-service
+            port:
+              number: 80
+  - host: api.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: fullstack-service
+            port:
+              number: 8000
+```
+
+## Best Practices Summary
+
+### Architecture Patterns
+- **Separation of Concerns**: Clear separation between frontend, backend, and data layers
+- **API-First Design**: Design APIs before implementing frontend
+- **Microservices**: Break down monoliths into manageable services
+- **Event-Driven Architecture**: Use events for loose coupling
+- **CQRS**: Separate read and write operations for complex domains
+
+### Development Workflow
+- **Feature Branches**: Use Git flow for feature development
+- **Code Reviews**: Mandatory peer reviews before merging
+- **Automated Testing**: Unit, integration, and e2e tests
+- **Continuous Integration**: Automated builds and tests
+- **Continuous Deployment**: Automated deployments to staging/production
+
+### Performance Optimization
+- **Caching**: Implement caching at multiple layers
+- **Database Optimization**: Use indexes, query optimization
+- **CDN**: Use CDN for static assets
+- **Code Splitting**: Lazy load components and routes
+- **Image Optimization**: Optimize images for web delivery
+
+### Security Best Practices
+- **Authentication**: Implement secure authentication (JWT, OAuth)
+- **Authorization**: Role-based access control
+- **Input Validation**: Validate all user inputs
+- **HTTPS**: Use HTTPS everywhere
+- **Security Headers**: Implement security headers
+

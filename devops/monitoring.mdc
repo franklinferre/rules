@@ -1,0 +1,1147 @@
+
+---
+description: "Monitoring and observability rules for comprehensive system visibility"
+globs: ["**/prometheus.yml", "**/grafana/**/*.json", "**/alerts.yml", "**/jaeger.yml"]
+alwaysApply: false
+---
+
+# Monitoring and Observability Rules
+
+## Core Principles
+- **Three Pillars**: Implement metrics, logs, and traces comprehensively
+- **Proactive Monitoring**: Set up alerts before issues become critical
+- **Business Metrics**: Monitor both technical and business KPIs
+- **SLI/SLO/SLA**: Define and track Service Level Indicators and Objectives
+- **Observability**: Enable debugging of unknown unknowns
+
+## Prometheus Configuration
+
+### Prometheus Setup
+```yaml
+# ✅ Good - Prometheus configuration
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'production'
+    region: 'us-west-2'
+
+rule_files:
+  - "alerts/*.yml"
+  - "recording_rules/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+      timeout: 10s
+      api_version: v2
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 5s
+    metrics_path: /metrics
+
+  # Node Exporter for system metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: 
+        - 'node-exporter:9100'
+    scrape_interval: 15s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+)(:[0-9]+)?'
+        replacement: '${1}'
+
+  # Application metrics
+  - job_name: 'myapp'
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names:
+            - production
+            - staging
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::[0-9]+)?;([0-9]+)
+        replacement: $1:$2
+        target_label: __address__
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: kubernetes_pod_name
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # Database metrics
+  - job_name: 'postgres-exporter'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 30s
+
+  # Redis metrics
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 30s
+
+  # Nginx metrics
+  - job_name: 'nginx-exporter'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+    scrape_interval: 30s
+
+  # Blackbox monitoring for external endpoints
+  - job_name: 'blackbox'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+        - https://example.com
+        - https://api.example.com/health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+# Storage configuration
+storage:
+  tsdb:
+    path: /prometheus/data
+    retention.time: 30d
+    retention.size: 50GB
+    wal-compression: true
+
+# Remote write for long-term storage
+remote_write:
+  - url: "https://prometheus-remote-write.example.com/api/v1/write"
+    basic_auth:
+      username: prometheus
+      password_file: /etc/prometheus/remote_write_password
+    queue_config:
+      max_samples_per_send: 1000
+      max_shards: 200
+      capacity: 2500
+```
+
+### Recording Rules
+```yaml
+# ✅ Good - Recording rules for performance
+groups:
+  - name: application.rules
+    interval: 30s
+    rules:
+      # HTTP request rate
+      - record: http_requests:rate5m
+        expr: rate(http_requests_total[5m])
+        labels:
+          job: myapp
+
+      # HTTP request rate by status
+      - record: http_requests:rate5m_by_status
+        expr: rate(http_requests_total[5m])
+        labels:
+          job: myapp
+
+      # Error rate
+      - record: http_requests:error_rate5m
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m])
+        labels:
+          job: myapp
+
+      # Response time percentiles
+      - record: http_request_duration:p50
+        expr: histogram_quantile(0.50, rate(http_request_duration_seconds_bucket[5m]))
+        labels:
+          job: myapp
+
+      - record: http_request_duration:p95
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
+        labels:
+          job: myapp
+
+      - record: http_request_duration:p99
+        expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))
+        labels:
+          job: myapp
+
+  - name: infrastructure.rules
+    interval: 30s
+    rules:
+      # CPU utilization
+      - record: node_cpu:utilization
+        expr: 1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) by (instance)
+
+      # Memory utilization
+      - record: node_memory:utilization
+        expr: 1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)
+
+      # Disk utilization
+      - record: node_disk:utilization
+        expr: 1 - (node_filesystem_avail_bytes{fstype!="tmpfs"} / node_filesystem_size_bytes{fstype!="tmpfs"})
+
+      # Network I/O rate
+      - record: node_network:receive_rate
+        expr: rate(node_network_receive_bytes_total[5m])
+
+      - record: node_network:transmit_rate
+        expr: rate(node_network_transmit_bytes_total[5m])
+
+  - name: business.rules
+    interval: 60s
+    rules:
+      # User registration rate
+      - record: business_users:registration_rate1h
+        expr: rate(user_registrations_total[1h])
+
+      # Revenue per minute
+      - record: business_revenue:rate1m
+        expr: rate(revenue_total[1m])
+
+      # Active users
+      - record: business_users:active_5m
+        expr: count(increase(user_activity_total[5m]) > 0)
+```
+
+### Alert Rules
+```yaml
+# ✅ Good - Comprehensive alert rules
+groups:
+  - name: critical.alerts
+    rules:
+      # Service down
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} on {{ $labels.instance }} has been down for more than 1 minute."
+          runbook_url: "https://runbooks.example.com/service-down"
+
+      # High error rate
+      - alert: HighErrorRate
+        expr: http_requests:error_rate5m > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} for {{ $labels.job }} on {{ $labels.instance }}"
+          runbook_url: "https://runbooks.example.com/high-error-rate"
+
+      # High response time
+      - alert: HighResponseTime
+        expr: http_request_duration:p95 > 2
+        for: 10m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is {{ $value }}s for {{ $labels.job }}"
+          runbook_url: "https://runbooks.example.com/high-response-time"
+
+  - name: infrastructure.alerts
+    rules:
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: node_cpu:utilization > 0.8
+        for: 15m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}"
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: node_memory:utilization > 0.9
+        for: 10m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}"
+
+      # Disk space low
+      - alert: DiskSpaceLow
+        expr: node_disk:utilization > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Disk space low on {{ $labels.instance }}"
+          description: "Disk usage is {{ $value | humanizePercentage }} on {{ $labels.instance }} {{ $labels.device }}"
+
+      # Disk space critical
+      - alert: DiskSpaceCritical
+        expr: node_disk:utilization > 0.95
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Disk space critical on {{ $labels.instance }}"
+          description: "Disk usage is {{ $value | humanizePercentage }} on {{ $labels.instance }} {{ $labels.device }}"
+
+  - name: database.alerts
+    rules:
+      # Database connection pool exhausted
+      - alert: DatabaseConnectionPoolExhausted
+        expr: postgres_connections_active / postgres_connections_max > 0.9
+        for: 5m
+        labels:
+          severity: critical
+          team: database
+        annotations:
+          summary: "Database connection pool nearly exhausted"
+          description: "{{ $value | humanizePercentage }} of database connections are in use"
+
+      # Slow queries
+      - alert: DatabaseSlowQueries
+        expr: rate(postgres_slow_queries_total[5m]) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          team: database
+        annotations:
+          summary: "High rate of slow database queries"
+          description: "{{ $value }} slow queries per second detected"
+
+  - name: business.alerts
+    rules:
+      # Low user registration rate
+      - alert: LowUserRegistrationRate
+        expr: business_users:registration_rate1h < 10
+        for: 30m
+        labels:
+          severity: warning
+          team: growth
+        annotations:
+          summary: "User registration rate is low"
+          description: "Only {{ $value }} users registered in the last hour"
+
+      # Revenue drop
+      - alert: RevenueDrop
+        expr: business_revenue:rate1m < 100
+        for: 15m
+        labels:
+          severity: critical
+          team: business
+        annotations:
+          summary: "Revenue rate has dropped significantly"
+          description: "Revenue rate is only ${{ $value }}/minute"
+```
+
+## Grafana Dashboards
+
+### Application Dashboard
+```json
+{
+  "dashboard": {
+    "id": null,
+    "title": "Application Metrics",
+    "tags": ["application", "monitoring"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Request Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total[5m]))",
+            "legendFormat": "Requests/sec"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 100},
+                {"color": "red", "value": 1000}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Error Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m]))",
+            "legendFormat": "Error Rate"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 0.01},
+                {"color": "red", "value": 0.05}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Response Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "p50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "p95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "p99"
+          }
+        ],
+        "yAxes": [
+          {
+            "unit": "s",
+            "min": 0
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 4,
+        "title": "Active Connections",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "sum(nodejs_active_handles_total)",
+            "legendFormat": "Active Handles"
+          },
+          {
+            "expr": "sum(nodejs_active_requests_total)",
+            "legendFormat": "Active Requests"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Memory Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "nodejs_heap_size_used_bytes",
+            "legendFormat": "Heap Used"
+          },
+          {
+            "expr": "nodejs_heap_size_total_bytes",
+            "legendFormat": "Heap Total"
+          },
+          {
+            "expr": "nodejs_external_memory_bytes",
+            "legendFormat": "External Memory"
+          }
+        ],
+        "yAxes": [
+          {
+            "unit": "bytes"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "30s"
+  }
+}
+```
+
+### Infrastructure Dashboard
+```json
+{
+  "dashboard": {
+    "id": null,
+    "title": "Infrastructure Metrics",
+    "tags": ["infrastructure", "monitoring"],
+    "panels": [
+      {
+        "id": 1,
+        "title": "CPU Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) by (instance) * 100)",
+            "legendFormat": "{{ instance }}"
+          }
+        ],
+        "yAxes": [
+          {
+            "unit": "percent",
+            "min": 0,
+            "max": 100
+          }
+        ],
+        "thresholds": [
+          {
+            "value": 80,
+            "colorMode": "critical",
+            "op": "gt"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Memory Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+            "legendFormat": "{{ instance }}"
+          }
+        ],
+        "yAxes": [
+          {
+            "unit": "percent",
+            "min": 0,
+            "max": 100
+          }
+        ],
+        "thresholds": [
+          {
+            "value": 90,
+            "colorMode": "critical",
+            "op": "gt"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Disk Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "(1 - (node_filesystem_avail_bytes{fstype!=\"tmpfs\"} / node_filesystem_size_bytes{fstype!=\"tmpfs\"})) * 100",
+            "legendFormat": "{{ instance }} - {{ mountpoint }}"
+          }
+        ],
+        "yAxes": [
+          {
+            "unit": "percent",
+            "min": 0,
+            "max": 100
+          }
+        ],
+        "thresholds": [
+          {
+            "value": 85,
+            "colorMode": "critical",
+            "op": "gt"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "Network I/O",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(node_network_receive_bytes_total[5m])",
+            "legendFormat": "{{ instance }} - Receive"
+          },
+          {
+            "expr": "rate(node_network_transmit_bytes_total[5m])",
+            "legendFormat": "{{ instance }} - Transmit"
+          }
+        ],
+        "yAxes": [
+          {
+            "unit": "Bps"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16}
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "30s"
+  }
+}
+```
+
+## Logging with ELK Stack
+
+### Logstash Configuration
+```ruby
+# ✅ Good - Logstash pipeline configuration
+input {
+  beats {
+    port => 5044
+  }
+  
+  # Application logs from Docker
+  docker {
+    host => "unix:///var/run/docker.sock"
+    codec => json
+  }
+  
+  # Syslog
+  syslog {
+    port => 514
+  }
+}
+
+filter {
+  # Parse application logs
+  if [fields][service] == "myapp" {
+    json {
+      source => "message"
+    }
+    
+    date {
+      match => [ "timestamp", "ISO8601" ]
+    }
+    
+    # Extract request ID for tracing
+    if [request_id] {
+      mutate {
+        add_field => { "trace_id" => "%{request_id}" }
+      }
+    }
+    
+    # Parse HTTP logs
+    if [type] == "http" {
+      grok {
+        match => { 
+          "message" => "%{COMBINEDAPACHELOG}" 
+        }
+      }
+      
+      date {
+        match => [ "timestamp", "dd/MMM/yyyy:HH:mm:ss Z" ]
+      }
+      
+      mutate {
+        convert => { "response" => "integer" }
+        convert => { "bytes" => "integer" }
+      }
+    }
+  }
+  
+  # Parse Nginx logs
+  if [fields][service] == "nginx" {
+    grok {
+      match => { 
+        "message" => "%{NGINXACCESS}" 
+      }
+    }
+    
+    # GeoIP lookup
+    geoip {
+      source => "clientip"
+      target => "geoip"
+    }
+    
+    # User agent parsing
+    useragent {
+      source => "agent"
+      target => "useragent"
+    }
+  }
+  
+  # Parse database logs
+  if [fields][service] == "postgres" {
+    grok {
+      match => { 
+        "message" => "%{TIMESTAMP_ISO8601:timestamp} \[%{DATA:pid}\] %{WORD:level}: %{GREEDYDATA:msg}" 
+      }
+    }
+    
+    # Extract slow query information
+    if [msg] =~ /duration:/ {
+      grok {
+        match => { 
+          "msg" => "duration: %{NUMBER:duration:float} ms" 
+        }
+      }
+      
+      if [duration] and [duration] > 1000 {
+        mutate {
+          add_tag => [ "slow_query" ]
+        }
+      }
+    }
+  }
+  
+  # Add common fields
+  mutate {
+    add_field => { 
+      "environment" => "${ENVIRONMENT:production}"
+      "cluster" => "${CLUSTER:main}"
+    }
+  }
+  
+  # Remove unnecessary fields
+  mutate {
+    remove_field => [ "host", "agent", "ecs", "input" ]
+  }
+}
+
+output {
+  # Send to Elasticsearch
+  elasticsearch {
+    hosts => ["elasticsearch:9200"]
+    index => "logs-%{[fields][service]}-%{+YYYY.MM.dd}"
+    template_name => "logs"
+    template => "/usr/share/logstash/templates/logs.json"
+    template_overwrite => true
+  }
+  
+  # Send critical errors to alerting
+  if [level] == "error" or [level] == "fatal" {
+    http {
+      url => "http://alertmanager:9093/api/v1/alerts"
+      http_method => "post"
+      format => "json"
+      mapping => {
+        "alerts" => [{
+          "labels" => {
+            "alertname" => "ApplicationError"
+            "service" => "%{[fields][service]}"
+            "severity" => "critical"
+          }
+          "annotations" => {
+            "summary" => "Application error detected"
+            "description" => "%{message}"
+          }
+        }]
+      }
+    }
+  }
+  
+  # Debug output
+  if [fields][debug] == "true" {
+    stdout { 
+      codec => rubydebug 
+    }
+  }
+}
+```
+
+### Elasticsearch Index Template
+```json
+{
+  "index_patterns": ["logs-*"],
+  "settings": {
+    "number_of_shards": 3,
+    "number_of_replicas": 1,
+    "index.refresh_interval": "30s",
+    "index.codec": "best_compression",
+    "index.lifecycle.name": "logs-policy",
+    "index.lifecycle.rollover_alias": "logs"
+  },
+  "mappings": {
+    "properties": {
+      "@timestamp": {
+        "type": "date"
+      },
+      "level": {
+        "type": "keyword"
+      },
+      "message": {
+        "type": "text",
+        "analyzer": "standard"
+      },
+      "service": {
+        "type": "keyword"
+      },
+      "environment": {
+        "type": "keyword"
+      },
+      "trace_id": {
+        "type": "keyword"
+      },
+      "request_id": {
+        "type": "keyword"
+      },
+      "user_id": {
+        "type": "keyword"
+      },
+      "duration": {
+        "type": "float"
+      },
+      "status_code": {
+        "type": "integer"
+      },
+      "method": {
+        "type": "keyword"
+      },
+      "path": {
+        "type": "keyword"
+      },
+      "ip": {
+        "type": "ip"
+      },
+      "geoip": {
+        "properties": {
+          "location": {
+            "type": "geo_point"
+          },
+          "country_name": {
+            "type": "keyword"
+          },
+          "city_name": {
+            "type": "keyword"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Distributed Tracing with Jaeger
+
+### Jaeger Configuration
+```yaml
+# ✅ Good - Jaeger configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jaeger-config
+data:
+  jaeger.yml: |
+    # Collector configuration
+    collector:
+      zipkin:
+        host-port: :14268
+      grpc:
+        host-port: :14250
+      http:
+        host-port: :14268
+      
+    # Storage configuration
+    storage:
+      type: elasticsearch
+      elasticsearch:
+        server-urls: http://elasticsearch:9200
+        index-prefix: jaeger
+        create-index-templates: true
+        version: 7
+        
+    # Query configuration
+    query:
+      base-path: /
+      static-files: /go/jaeger-ui/
+      ui-config: /etc/jaeger/ui.json
+      
+    # Agent configuration
+    agent:
+      jaeger:
+        thrift-compact:
+          host-port: :6831
+        thrift-binary:
+          host-port: :6832
+        grpc:
+          host-port: :14250
+
+  ui.json: |
+    {
+      "monitor": {
+        "menuEnabled": true
+      },
+      "dependencies": {
+        "menuEnabled": true
+      },
+      "archiveEnabled": true,
+      "tracking": {
+        "gaID": "UA-000000-2",
+        "trackErrors": true
+      }
+    }
+
+---
+# Jaeger deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jaeger
+  template:
+    metadata:
+      labels:
+        app: jaeger
+    spec:
+      containers:
+      - name: jaeger
+        image: jaegertracing/all-in-one:1.50
+        ports:
+        - containerPort: 16686
+          name: ui
+        - containerPort: 14268
+          name: collector
+        - containerPort: 6831
+          name: agent-compact
+          protocol: UDP
+        - containerPort: 6832
+          name: agent-binary
+          protocol: UDP
+        env:
+        - name: COLLECTOR_ZIPKIN_HOST_PORT
+          value: ":9411"
+        - name: SPAN_STORAGE_TYPE
+          value: "elasticsearch"
+        - name: ES_SERVER_URLS
+          value: "http://elasticsearch:9200"
+        - name: ES_INDEX_PREFIX
+          value: "jaeger"
+        volumeMounts:
+        - name: config
+          mountPath: /etc/jaeger
+      volumes:
+      - name: config
+        configMap:
+          name: jaeger-config
+```
+
+### Application Tracing Integration
+```javascript
+// ✅ Good - Node.js application tracing setup
+const { NodeSDK } = require('@opentelemetry/sdk-node');
+const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');
+const { JaegerExporter } = require('@opentelemetry/exporter-jaeger');
+const { Resource } = require('@opentelemetry/resources');
+const { SemanticResourceAttributes } = require('@opentelemetry/semantic-conventions');
+
+// Initialize tracing
+const jaegerExporter = new JaegerExporter({
+  endpoint: process.env.JAEGER_ENDPOINT || 'http://jaeger:14268/api/traces',
+});
+
+const sdk = new NodeSDK({
+  resource: new Resource({
+    [SemanticResourceAttributes.SERVICE_NAME]: 'myapp',
+    [SemanticResourceAttributes.SERVICE_VERSION]: process.env.APP_VERSION || '1.0.0',
+    [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV || 'development',
+  }),
+  traceExporter: jaegerExporter,
+  instrumentations: [
+    getNodeAutoInstrumentations({
+      '@opentelemetry/instrumentation-fs': {
+        enabled: false, // Disable file system instrumentation
+      },
+    }),
+  ],
+});
+
+sdk.start();
+
+// Custom tracing example
+const { trace, context } = require('@opentelemetry/api');
+
+class UserService {
+  async createUser(userData) {
+    const tracer = trace.getTracer('user-service');
+    
+    return tracer.startActiveSpan('user.create', async (span) => {
+      try {
+        span.setAttributes({
+          'user.email': userData.email,
+          'user.type': userData.type || 'regular',
+        });
+        
+        // Validate user data
+        await tracer.startActiveSpan('user.validate', async (validateSpan) => {
+          await this.validateUserData(userData);
+          validateSpan.setStatus({ code: trace.SpanStatusCode.OK });
+          validateSpan.end();
+        });
+        
+        // Save to database
+        const user = await tracer.startActiveSpan('user.save', async (saveSpan) => {
+          const result = await this.userRepository.save(userData);
+          saveSpan.setAttributes({
+            'db.operation': 'insert',
+            'db.table': 'users',
+            'user.id': result.id,
+          });
+          saveSpan.setStatus({ code: trace.SpanStatusCode.OK });
+          saveSpan.end();
+          return result;
+        });
+        
+        // Send welcome email
+        await tracer.startActiveSpan('user.welcome_email', async (emailSpan) => {
+          await this.emailService.sendWelcomeEmail(user);
+          emailSpan.setAttributes({
+            'email.type': 'welcome',
+            'email.recipient': user.email,
+          });
+          emailSpan.setStatus({ code: trace.SpanStatusCode.OK });
+          emailSpan.end();
+        });
+        
+        span.setStatus({ code: trace.SpanStatusCode.OK });
+        return user;
+      } catch (error) {
+        span.recordException(error);
+        span.setStatus({
+          code: trace.SpanStatusCode.ERROR,
+          message: error.message,
+        });
+        throw error;
+      } finally {
+        span.end();
+      }
+    });
+  }
+}
+```
+
+## SLI/SLO/SLA Framework
+
+### Service Level Indicators
+```yaml
+# ✅ Good - SLI definitions
+slis:
+  availability:
+    description: "Percentage of successful requests"
+    query: |
+      sum(rate(http_requests_total{status!~"5.."}[5m])) /
+      sum(rate(http_requests_total[5m]))
+    unit: "ratio"
+    
+  latency:
+    description: "95th percentile response time"
+    query: |
+      histogram_quantile(0.95, 
+        rate(http_request_duration_seconds_bucket[5m]))
+    unit: "seconds"
+    
+  error_rate:
+    description: "Percentage of requests returning 5xx errors"
+    query: |
+      sum(rate(http_requests_total{status=~"5.."}[5m])) /
+      sum(rate(http_requests_total[5m]))
+    unit: "ratio"
+    
+  throughput:
+    description: "Requests per second"
+    query: |
+      sum(rate(http_requests_total[5m]))
+    unit: "requests/second"
+```
+
+### Service Level Objectives
+```yaml
+# ✅ Good - SLO definitions
+slos:
+  availability:
+    sli: availability
+    target: 0.999  # 99.9% availability
+    window: 30d
+    
+  latency:
+    sli: latency
+    target: 0.5    # 500ms
+    window: 30d
+    
+  error_rate:
+    sli: error_rate
+    target: 0.001  # 0.1% error rate
+    window: 30d
+
+# Error budget calculations
+error_budgets:
+  availability:
+    budget: 0.001  # 0.1% error budget (100% - 99.9%)
+    burn_rate_alerts:
+      - threshold: 14.4  # 2% of budget in 1 hour
+        window: 1h
+        severity: critical
+      - threshold: 6     # 5% of budget in 6 hours
+        window: 6h
+        severity: warning
+```
+
+## Best Practices Summary
+
+### Metrics Collection
+- **Golden Signals**: Monitor latency, traffic, errors, and saturation
+- **Business Metrics**: Track KPIs that matter to the business
+- **Infrastructure Metrics**: Monitor system resources and health
+- **Custom Metrics**: Add application-specific measurements
+
+### Alerting Strategy
+- **Alert on Symptoms**: Focus on user-facing issues
+- **Reduce Noise**: Avoid alert fatigue with proper thresholds
+- **Actionable Alerts**: Every alert should require human action
+- **Escalation Paths**: Define clear escalation procedures
+
+### Dashboard Design
+- **User-Centric**: Design dashboards for specific audiences
+- **Hierarchical**: Start with high-level overview, drill down
+- **Consistent**: Use consistent colors, units, and layouts
+- **Performance**: Optimize queries for fast loading
+
+### Log Management
+- **Structured Logging**: Use consistent log formats
+- **Correlation IDs**: Enable request tracing across services
+- **Log Levels**: Use appropriate log levels consistently
+- **Retention Policies**: Balance storage costs with compliance needs
+
+### Observability Culture
+- **Shared Responsibility**: Everyone owns observability
+- **Documentation**: Maintain runbooks and troubleshooting guides
+- **Post-Mortems**: Learn from incidents without blame
+- **Continuous Improvement**: Regularly review and improve monitoring
+
