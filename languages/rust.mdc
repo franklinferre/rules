@@ -1,0 +1,1053 @@
+
+---
+description: "Rust development rules focusing on safety, performance, and modern patterns"
+globs: ["**/*.rs", "**/Cargo.toml", "**/Cargo.lock"]
+alwaysApply: false
+---
+
+# Rust Development Rules
+
+## Core Principles
+- **Memory Safety**: Leverage Rust's ownership system for zero-cost abstractions
+- **Error Handling**: Use `Result<T, E>` and `Option<T>` for explicit error management
+- **Performance**: Write efficient code with minimal runtime overhead
+- **Concurrency**: Use async/await and safe concurrency primitives
+- **Type Safety**: Leverage the type system for correctness
+
+## Ownership and Borrowing
+
+### Ownership Patterns
+```rust
+// ✅ Good - Clear ownership transfer
+fn process_data(data: Vec<String>) -> Vec<String> {
+    data.into_iter()
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_uppercase())
+        .collect()
+}
+
+// ✅ Good - Borrowing for read-only access
+fn analyze_data(data: &[String]) -> usize {
+    data.iter()
+        .filter(|s| s.len() > 5)
+        .count()
+}
+
+// ✅ Good - Mutable borrowing when needed
+fn modify_data(data: &mut Vec<String>) {
+    data.retain(|s| !s.is_empty());
+    data.sort();
+}
+
+// ✅ Good - Clone when necessary for shared ownership
+use std::sync::Arc;
+
+fn share_data(data: Vec<String>) -> (Arc<Vec<String>>, Arc<Vec<String>>) {
+    let shared = Arc::new(data);
+    (Arc::clone(&shared), shared)
+}
+```
+
+### Lifetime Management
+```rust
+// ✅ Good - Explicit lifetimes when needed
+struct UserService<'a> {
+    config: &'a Config,
+    logger: &'a Logger,
+}
+
+impl<'a> UserService<'a> {
+    fn new(config: &'a Config, logger: &'a Logger) -> Self {
+        Self { config, logger }
+    }
+    
+    fn process_user(&self, user: &User) -> Result<ProcessedUser, ServiceError> {
+        self.logger.info("Processing user", &[("id", &user.id)]);
+        
+        if !self.config.validation_enabled {
+            return Ok(ProcessedUser::from(user));
+        }
+        
+        self.validate_and_process(user)
+    }
+}
+
+// ✅ Good - Lifetime elision where possible
+fn find_longest_name(names: &[String]) -> Option<&String> {
+    names.iter().max_by_key(|name| name.len())
+}
+```
+
+## Error Handling
+
+### Result and Option Patterns
+```rust
+use std::fmt;
+
+// ✅ Good - Custom error types
+#[derive(Debug)]
+pub enum UserError {
+    NotFound(String),
+    ValidationFailed(String),
+    DatabaseError(String),
+    NetworkError(String),
+}
+
+impl fmt::Display for UserError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            UserError::NotFound(id) => write!(f, "User with ID {} not found", id),
+            UserError::ValidationFailed(msg) => write!(f, "Validation failed: {}", msg),
+            UserError::DatabaseError(msg) => write!(f, "Database error: {}", msg),
+            UserError::NetworkError(msg) => write!(f, "Network error: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for UserError {}
+
+// ✅ Good - Result chaining with ?
+pub async fn create_user(user_data: CreateUserRequest) -> Result<User, UserError> {
+    let validated_data = validate_user_data(&user_data)?;
+    let user = User::new(validated_data)?;
+    let saved_user = save_to_database(&user).await?;
+    send_welcome_email(&saved_user).await?;
+    
+    Ok(saved_user)
+}
+
+// ✅ Good - Error conversion with From trait
+impl From<sqlx::Error> for UserError {
+    fn from(err: sqlx::Error) -> Self {
+        UserError::DatabaseError(err.to_string())
+    }
+}
+
+impl From<reqwest::Error> for UserError {
+    fn from(err: reqwest::Error) -> Self {
+        UserError::NetworkError(err.to_string())
+    }
+}
+
+// ✅ Good - Option handling patterns
+fn get_user_email(user: &Option<User>) -> Option<&str> {
+    user.as_ref()?.email.as_deref()
+}
+
+fn process_optional_data(data: Option<String>) -> String {
+    data.unwrap_or_else(|| "default".to_string())
+}
+```
+
+### Error Propagation
+```rust
+// ✅ Good - Early returns with ?
+async fn fetch_user_profile(user_id: &str) -> Result<UserProfile, UserError> {
+    let user = fetch_user(user_id).await?;
+    let preferences = fetch_user_preferences(user_id).await?;
+    let activity = fetch_user_activity(user_id).await?;
+    
+    Ok(UserProfile {
+        user,
+        preferences,
+        activity,
+    })
+}
+
+// ✅ Good - Collecting results
+fn process_multiple_users(user_ids: &[String]) -> Result<Vec<User>, UserError> {
+    user_ids
+        .iter()
+        .map(|id| fetch_user(id))
+        .collect::<Result<Vec<_>, _>>()
+}
+
+// ✅ Good - Handling partial failures
+fn process_users_with_errors(user_ids: &[String]) -> (Vec<User>, Vec<UserError>) {
+    let (users, errors): (Vec<_>, Vec<_>) = user_ids
+        .iter()
+        .map(|id| fetch_user(id))
+        .partition(Result::is_ok);
+    
+    let users: Vec<User> = users.into_iter().map(Result::unwrap).collect();
+    let errors: Vec<UserError> = errors.into_iter().map(Result::unwrap_err).collect();
+    
+    (users, errors)
+}
+```
+
+## Async Programming
+
+### Tokio and Async Patterns
+```rust
+use tokio::{time, sync::Mutex};
+use std::sync::Arc;
+
+// ✅ Good - Async service structure
+#[derive(Clone)]
+pub struct UserService {
+    repository: Arc<dyn UserRepository + Send + Sync>,
+    cache: Arc<Mutex<HashMap<String, User>>>,
+    http_client: reqwest::Client,
+}
+
+impl UserService {
+    pub fn new(repository: Arc<dyn UserRepository + Send + Sync>) -> Self {
+        Self {
+            repository,
+            cache: Arc::new(Mutex::new(HashMap::new())),
+            http_client: reqwest::Client::new(),
+        }
+    }
+    
+    pub async fn get_user(&self, id: &str) -> Result<User, UserError> {
+        // Check cache first
+        {
+            let cache = self.cache.lock().await;
+            if let Some(user) = cache.get(id) {
+                return Ok(user.clone());
+            }
+        }
+        
+        // Fetch from repository
+        let user = self.repository.find_by_id(id).await?;
+        
+        // Update cache
+        {
+            let mut cache = self.cache.lock().await;
+            cache.insert(id.to_string(), user.clone());
+        }
+        
+        Ok(user)
+    }
+    
+    pub async fn create_user_with_timeout(
+        &self,
+        user_data: CreateUserRequest,
+    ) -> Result<User, UserError> {
+        time::timeout(
+            time::Duration::from_secs(30),
+            self.create_user(user_data),
+        )
+        .await
+        .map_err(|_| UserError::NetworkError("Operation timed out".to_string()))?
+    }
+}
+
+// ✅ Good - Concurrent operations
+pub async fn fetch_user_data_concurrent(
+    user_id: &str,
+) -> Result<(User, UserPreferences, Vec<Activity>), UserError> {
+    let (user_result, prefs_result, activity_result) = tokio::join!(
+        fetch_user(user_id),
+        fetch_user_preferences(user_id),
+        fetch_user_activities(user_id)
+    );
+    
+    Ok((user_result?, prefs_result?, activity_result?))
+}
+
+// ✅ Good - Stream processing
+use tokio_stream::{Stream, StreamExt};
+
+pub async fn process_user_stream<S>(mut stream: S) -> Result<Vec<ProcessedUser>, UserError>
+where
+    S: Stream<Item = Result<User, UserError>> + Unpin,
+{
+    let mut processed_users = Vec::new();
+    
+    while let Some(user_result) = stream.next().await {
+        let user = user_result?;
+        let processed = process_user(user).await?;
+        processed_users.push(processed);
+    }
+    
+    Ok(processed_users)
+}
+```
+
+### Channels and Communication
+```rust
+use tokio::sync::{mpsc, oneshot};
+
+// ✅ Good - Actor pattern with channels
+pub struct UserActor {
+    receiver: mpsc::Receiver<UserMessage>,
+    repository: Arc<dyn UserRepository + Send + Sync>,
+}
+
+pub enum UserMessage {
+    Create {
+        user_data: CreateUserRequest,
+        respond_to: oneshot::Sender<Result<User, UserError>>,
+    },
+    Get {
+        id: String,
+        respond_to: oneshot::Sender<Result<User, UserError>>,
+    },
+    Update {
+        id: String,
+        updates: UpdateUserRequest,
+        respond_to: oneshot::Sender<Result<User, UserError>>,
+    },
+}
+
+impl UserActor {
+    pub fn new(
+        receiver: mpsc::Receiver<UserMessage>,
+        repository: Arc<dyn UserRepository + Send + Sync>,
+    ) -> Self {
+        Self { receiver, repository }
+    }
+    
+    pub async fn run(mut self) {
+        while let Some(message) = self.receiver.recv().await {
+            match message {
+                UserMessage::Create { user_data, respond_to } => {
+                    let result = self.handle_create(user_data).await;
+                    let _ = respond_to.send(result);
+                }
+                UserMessage::Get { id, respond_to } => {
+                    let result = self.handle_get(&id).await;
+                    let _ = respond_to.send(result);
+                }
+                UserMessage::Update { id, updates, respond_to } => {
+                    let result = self.handle_update(&id, updates).await;
+                    let _ = respond_to.send(result);
+                }
+            }
+        }
+    }
+    
+    async fn handle_create(&self, user_data: CreateUserRequest) -> Result<User, UserError> {
+        // Implementation
+        todo!()
+    }
+    
+    async fn handle_get(&self, id: &str) -> Result<User, UserError> {
+        self.repository.find_by_id(id).await
+    }
+    
+    async fn handle_update(&self, id: &str, updates: UpdateUserRequest) -> Result<User, UserError> {
+        // Implementation
+        todo!()
+    }
+}
+
+// ✅ Good - Actor handle
+#[derive(Clone)]
+pub struct UserActorHandle {
+    sender: mpsc::Sender<UserMessage>,
+}
+
+impl UserActorHandle {
+    pub fn new(sender: mpsc::Sender<UserMessage>) -> Self {
+        Self { sender }
+    }
+    
+    pub async fn create_user(&self, user_data: CreateUserRequest) -> Result<User, UserError> {
+        let (tx, rx) = oneshot::channel();
+        
+        self.sender
+            .send(UserMessage::Create {
+                user_data,
+                respond_to: tx,
+            })
+            .await
+            .map_err(|_| UserError::NetworkError("Actor unavailable".to_string()))?;
+        
+        rx.await
+            .map_err(|_| UserError::NetworkError("Actor response failed".to_string()))?
+    }
+}
+```
+
+## Type System and Generics
+
+### Generic Programming
+```rust
+// ✅ Good - Generic repository trait
+#[async_trait::async_trait]
+pub trait Repository<T, ID> {
+    type Error;
+    
+    async fn find_by_id(&self, id: ID) -> Result<Option<T>, Self::Error>;
+    async fn save(&self, entity: &T) -> Result<T, Self::Error>;
+    async fn delete(&self, id: ID) -> Result<(), Self::Error>;
+    async fn find_all(&self) -> Result<Vec<T>, Self::Error>;
+}
+
+// ✅ Good - Generic service with bounds
+pub struct GenericService<T, R>
+where
+    T: Clone + Send + Sync,
+    R: Repository<T, String> + Send + Sync,
+{
+    repository: Arc<R>,
+    _phantom: std::marker::PhantomData<T>,
+}
+
+impl<T, R> GenericService<T, R>
+where
+    T: Clone + Send + Sync,
+    R: Repository<T, String> + Send + Sync,
+{
+    pub fn new(repository: Arc<R>) -> Self {
+        Self {
+            repository,
+            _phantom: std::marker::PhantomData,
+        }
+    }
+    
+    pub async fn get(&self, id: &str) -> Result<Option<T>, R::Error> {
+        self.repository.find_by_id(id.to_string()).await
+    }
+    
+    pub async fn save(&self, entity: &T) -> Result<T, R::Error> {
+        self.repository.save(entity).await
+    }
+}
+
+// ✅ Good - Associated types and where clauses
+pub trait Processor {
+    type Input;
+    type Output;
+    type Error;
+    
+    fn process(&self, input: Self::Input) -> Result<Self::Output, Self::Error>;
+}
+
+pub fn process_batch<P>(
+    processor: &P,
+    inputs: Vec<P::Input>,
+) -> Result<Vec<P::Output>, P::Error>
+where
+    P: Processor,
+    P::Input: Clone,
+{
+    inputs
+        .into_iter()
+        .map(|input| processor.process(input))
+        .collect()
+}
+```
+
+### Newtype Pattern and Type Safety
+```rust
+// ✅ Good - Newtype for type safety
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct UserId(String);
+
+impl UserId {
+    pub fn new(id: String) -> Result<Self, ValidationError> {
+        if id.is_empty() {
+            return Err(ValidationError::new("User ID cannot be empty"));
+        }
+        if id.len() > 50 {
+            return Err(ValidationError::new("User ID too long"));
+        }
+        Ok(UserId(id))
+    }
+    
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for UserId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+// ✅ Good - Phantom types for compile-time guarantees
+use std::marker::PhantomData;
+
+pub struct Validated;
+pub struct Unvalidated;
+
+pub struct User<State = Unvalidated> {
+    pub id: UserId,
+    pub email: String,
+    pub name: String,
+    _state: PhantomData<State>,
+}
+
+impl User<Unvalidated> {
+    pub fn new(id: UserId, email: String, name: String) -> Self {
+        Self {
+            id,
+            email,
+            name,
+            _state: PhantomData,
+        }
+    }
+    
+    pub fn validate(self) -> Result<User<Validated>, ValidationError> {
+        if self.email.is_empty() {
+            return Err(ValidationError::new("Email cannot be empty"));
+        }
+        if self.name.is_empty() {
+            return Err(ValidationError::new("Name cannot be empty"));
+        }
+        
+        Ok(User {
+            id: self.id,
+            email: self.email,
+            name: self.name,
+            _state: PhantomData,
+        })
+    }
+}
+
+impl User<Validated> {
+    pub fn save(self) -> Result<SavedUser, DatabaseError> {
+        // Only validated users can be saved
+        todo!()
+    }
+}
+```
+
+## Web Development with Axum
+
+### HTTP Server Setup
+```rust
+use axum::{
+    extract::{Path, Query, State},
+    http::StatusCode,
+    response::Json,
+    routing::{get, post},
+    Router,
+};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+
+// ✅ Good - Application state
+#[derive(Clone)]
+pub struct AppState {
+    user_service: Arc<UserService>,
+    config: Arc<Config>,
+}
+
+// ✅ Good - Request/Response types
+#[derive(Deserialize)]
+pub struct CreateUserRequest {
+    pub email: String,
+    pub name: String,
+}
+
+#[derive(Serialize)]
+pub struct UserResponse {
+    pub id: String,
+    pub email: String,
+    pub name: String,
+    pub created_at: String,
+}
+
+#[derive(Deserialize)]
+pub struct UserQuery {
+    pub limit: Option<u32>,
+    pub offset: Option<u32>,
+}
+
+// ✅ Good - Handler functions
+pub async fn create_user(
+    State(state): State<AppState>,
+    Json(request): Json<CreateUserRequest>,
+) -> Result<(StatusCode, Json<UserResponse>), AppError> {
+    let user = state
+        .user_service
+        .create_user(request)
+        .await
+        .map_err(AppError::from)?;
+    
+    let response = UserResponse {
+        id: user.id.to_string(),
+        email: user.email,
+        name: user.name,
+        created_at: user.created_at.to_rfc3339(),
+    };
+    
+    Ok((StatusCode::CREATED, Json(response)))
+}
+
+pub async fn get_user(
+    State(state): State<AppState>,
+    Path(user_id): Path<String>,
+) -> Result<Json<UserResponse>, AppError> {
+    let user_id = UserId::new(user_id).map_err(|_| AppError::BadRequest("Invalid user ID".to_string()))?;
+    
+    let user = state
+        .user_service
+        .get_user(&user_id)
+        .await
+        .map_err(AppError::from)?
+        .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
+    
+    let response = UserResponse {
+        id: user.id.to_string(),
+        email: user.email,
+        name: user.name,
+        created_at: user.created_at.to_rfc3339(),
+    };
+    
+    Ok(Json(response))
+}
+
+pub async fn list_users(
+    State(state): State<AppState>,
+    Query(query): Query<UserQuery>,
+) -> Result<Json<Vec<UserResponse>>, AppError> {
+    let limit = query.limit.unwrap_or(10).min(100);
+    let offset = query.offset.unwrap_or(0);
+    
+    let users = state
+        .user_service
+        .list_users(limit, offset)
+        .await
+        .map_err(AppError::from)?;
+    
+    let responses: Vec<UserResponse> = users
+        .into_iter()
+        .map(|user| UserResponse {
+            id: user.id.to_string(),
+            email: user.email,
+            name: user.name,
+            created_at: user.created_at.to_rfc3339(),
+        })
+        .collect();
+    
+    Ok(Json(responses))
+}
+
+// ✅ Good - Router setup
+pub fn create_router(state: AppState) -> Router {
+    Router::new()
+        .route("/users", post(create_user).get(list_users))
+        .route("/users/:id", get(get_user))
+        .with_state(state)
+}
+
+// ✅ Good - Error handling
+#[derive(Debug)]
+pub enum AppError {
+    BadRequest(String),
+    NotFound(String),
+    InternalServerError(String),
+    UserService(UserError),
+}
+
+impl axum::response::IntoResponse for AppError {
+    fn into_response(self) -> axum::response::Response {
+        let (status, message) = match self {
+            AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
+            AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
+            AppError::InternalServerError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
+            AppError::UserService(err) => match err {
+                UserError::NotFound(_) => (StatusCode::NOT_FOUND, err.to_string()),
+                UserError::ValidationFailed(_) => (StatusCode::BAD_REQUEST, err.to_string()),
+                _ => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string()),
+            },
+        };
+        
+        let body = Json(serde_json::json!({
+            "error": message
+        }));
+        
+        (status, body).into_response()
+    }
+}
+
+impl From<UserError> for AppError {
+    fn from(err: UserError) -> Self {
+        AppError::UserService(err)
+    }
+}
+```
+
+## Database Integration with SQLx
+
+### Database Operations
+```rust
+use sqlx::{PgPool, Row};
+use uuid::Uuid;
+
+// ✅ Good - Repository implementation
+pub struct PostgresUserRepository {
+    pool: PgPool,
+}
+
+impl PostgresUserRepository {
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+}
+
+#[async_trait::async_trait]
+impl Repository<User, UserId> for PostgresUserRepository {
+    type Error = sqlx::Error;
+    
+    async fn find_by_id(&self, id: UserId) -> Result<Option<User>, Self::Error> {
+        let row = sqlx::query!(
+            "SELECT id, email, name, created_at, updated_at FROM users WHERE id = $1",
+            id.as_str()
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+        
+        match row {
+            Some(row) => {
+                let user = User {
+                    id: UserId::new(row.id).unwrap(), // Safe because it came from DB
+                    email: row.email,
+                    name: row.name,
+                    created_at: row.created_at,
+                    updated_at: row.updated_at,
+                };
+                Ok(Some(user))
+            }
+            None => Ok(None),
+        }
+    }
+    
+    async fn save(&self, user: &User) -> Result<User, Self::Error> {
+        let row = sqlx::query!(
+            r#"
+            INSERT INTO users (id, email, name, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (id) DO UPDATE SET
+                email = EXCLUDED.email,
+                name = EXCLUDED.name,
+                updated_at = EXCLUDED.updated_at
+            RETURNING id, email, name, created_at, updated_at
+            "#,
+            user.id.as_str(),
+            user.email,
+            user.name,
+            user.created_at,
+            user.updated_at
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        
+        Ok(User {
+            id: UserId::new(row.id).unwrap(),
+            email: row.email,
+            name: row.name,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        })
+    }
+    
+    async fn delete(&self, id: UserId) -> Result<(), Self::Error> {
+        sqlx::query!("DELETE FROM users WHERE id = $1", id.as_str())
+            .execute(&self.pool)
+            .await?;
+        
+        Ok(())
+    }
+    
+    async fn find_all(&self) -> Result<Vec<User>, Self::Error> {
+        let rows = sqlx::query!("SELECT id, email, name, created_at, updated_at FROM users")
+            .fetch_all(&self.pool)
+            .await?;
+        
+        let users = rows
+            .into_iter()
+            .map(|row| User {
+                id: UserId::new(row.id).unwrap(),
+                email: row.email,
+                name: row.name,
+                created_at: row.created_at,
+                updated_at: row.updated_at,
+            })
+            .collect();
+        
+        Ok(users)
+    }
+}
+
+// ✅ Good - Transaction handling
+impl PostgresUserRepository {
+    pub async fn create_user_with_profile(
+        &self,
+        user: &User,
+        profile: &UserProfile,
+    ) -> Result<(User, UserProfile), sqlx::Error> {
+        let mut tx = self.pool.begin().await?;
+        
+        // Insert user
+        let user_row = sqlx::query!(
+            "INSERT INTO users (id, email, name, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+            user.id.as_str(),
+            user.email,
+            user.name,
+            user.created_at,
+            user.updated_at
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+        
+        // Insert profile
+        let profile_row = sqlx::query!(
+            "INSERT INTO user_profiles (user_id, bio, avatar_url) VALUES ($1, $2, $3) RETURNING *",
+            profile.user_id.as_str(),
+            profile.bio,
+            profile.avatar_url
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+        
+        tx.commit().await?;
+        
+        let saved_user = User {
+            id: UserId::new(user_row.id).unwrap(),
+            email: user_row.email,
+            name: user_row.name,
+            created_at: user_row.created_at,
+            updated_at: user_row.updated_at,
+        };
+        
+        let saved_profile = UserProfile {
+            user_id: UserId::new(profile_row.user_id).unwrap(),
+            bio: profile_row.bio,
+            avatar_url: profile_row.avatar_url,
+        };
+        
+        Ok((saved_user, saved_profile))
+    }
+}
+```
+
+## Testing
+
+### Unit Testing
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio_test;
+    
+    // ✅ Good - Test helper functions
+    fn create_test_user() -> User {
+        User {
+            id: UserId::new("test-id".to_string()).unwrap(),
+            email: "test@example.com".to_string(),
+            name: "Test User".to_string(),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        }
+    }
+    
+    // ✅ Good - Async test
+    #[tokio::test]
+    async fn test_user_service_create_user() {
+        let mut mock_repo = MockUserRepository::new();
+        mock_repo
+            .expect_save()
+            .times(1)
+            .returning(|user| Ok(user.clone()));
+        
+        let service = UserService::new(Arc::new(mock_repo));
+        let request = CreateUserRequest {
+            email: "test@example.com".to_string(),
+            name: "Test User".to_string(),
+        };
+        
+        let result = service.create_user(request).await;
+        
+        assert!(result.is_ok());
+        let user = result.unwrap();
+        assert_eq!(user.email, "test@example.com");
+        assert_eq!(user.name, "Test User");
+    }
+    
+    // ✅ Good - Property-based testing with proptest
+    #[cfg(test)]
+    mod property_tests {
+        use super::*;
+        use proptest::prelude::*;
+        
+        proptest! {
+            #[test]
+            fn test_user_id_validation(id in "\\PC*") {
+                let result = UserId::new(id.clone());
+                if id.is_empty() || id.len() > 50 {
+                    assert!(result.is_err());
+                } else {
+                    assert!(result.is_ok());
+                    assert_eq!(result.unwrap().as_str(), id);
+                }
+            }
+        }
+    }
+    
+    // ✅ Good - Integration test
+    #[tokio::test]
+    async fn test_user_repository_integration() {
+        let pool = create_test_db_pool().await;
+        let repo = PostgresUserRepository::new(pool);
+        
+        let user = create_test_user();
+        
+        // Test save
+        let saved_user = repo.save(&user).await.unwrap();
+        assert_eq!(saved_user.email, user.email);
+        
+        // Test find
+        let found_user = repo.find_by_id(user.id.clone()).await.unwrap();
+        assert!(found_user.is_some());
+        assert_eq!(found_user.unwrap().email, user.email);
+        
+        // Test delete
+        repo.delete(user.id.clone()).await.unwrap();
+        let deleted_user = repo.find_by_id(user.id).await.unwrap();
+        assert!(deleted_user.is_none());
+    }
+}
+```
+
+## Performance and Optimization
+
+### Memory Management
+```rust
+// ✅ Good - Using Cow for efficient string handling
+use std::borrow::Cow;
+
+pub fn process_text(input: &str) -> Cow<str> {
+    if input.contains("bad_word") {
+        Cow::Owned(input.replace("bad_word", "***"))
+    } else {
+        Cow::Borrowed(input)
+    }
+}
+
+// ✅ Good - Arena allocation for temporary objects
+use typed_arena::Arena;
+
+pub fn process_nodes(data: &[NodeData]) -> Vec<ProcessedNode> {
+    let arena = Arena::new();
+    let mut results = Vec::new();
+    
+    for node_data in data {
+        let temp_node = arena.alloc(TempNode::from(node_data));
+        let processed = process_temp_node(temp_node);
+        results.push(processed);
+    }
+    
+    results
+}
+
+// ✅ Good - Efficient string building
+pub fn build_query(conditions: &[&str]) -> String {
+    if conditions.is_empty() {
+        return "SELECT * FROM users".to_string();
+    }
+    
+    let mut query = String::with_capacity(100); // Pre-allocate
+    query.push_str("SELECT * FROM users WHERE ");
+    
+    for (i, condition) in conditions.iter().enumerate() {
+        if i > 0 {
+            query.push_str(" AND ");
+        }
+        query.push_str(condition);
+    }
+    
+    query
+}
+```
+
+## Security Best Practices
+
+### Input Validation and Sanitization
+```rust
+use regex::Regex;
+use once_cell::sync::Lazy;
+
+// ✅ Good - Compile-time regex
+static EMAIL_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap()
+});
+
+pub fn validate_email(email: &str) -> Result<(), ValidationError> {
+    if email.is_empty() {
+        return Err(ValidationError::new("Email cannot be empty"));
+    }
+    
+    if email.len() > 254 {
+        return Err(ValidationError::new("Email too long"));
+    }
+    
+    if !EMAIL_REGEX.is_match(email) {
+        return Err(ValidationError::new("Invalid email format"));
+    }
+    
+    Ok(())
+}
+
+// ✅ Good - Safe string handling
+pub fn sanitize_input(input: &str, max_length: usize) -> String {
+    input
+        .chars()
+        .filter(|c| !c.is_control() || *c == '\n' || *c == '\t')
+        .take(max_length)
+        .collect()
+}
+
+// ✅ Good - Secure password handling
+use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+use argon2::password_hash::{rand_core::OsRng, SaltString};
+
+pub struct PasswordService {
+    argon2: Argon2<'static>,
+}
+
+impl PasswordService {
+    pub fn new() -> Self {
+        Self {
+            argon2: Argon2::default(),
+        }
+    }
+    
+    pub fn hash_password(&self, password: &str) -> Result<String, argon2::password_hash::Error> {
+        let salt = SaltString::generate(&mut OsRng);
+        let password_hash = self.argon2.hash_password(password.as_bytes(), &salt)?;
+        Ok(password_hash.to_string())
+    }
+    
+    pub fn verify_password(&self, password: &str, hash: &str) -> Result<bool, argon2::password_hash::Error> {
+        let parsed_hash = PasswordHash::new(hash)?;
+        Ok(self.argon2.verify_password(password.as_bytes(), &parsed_hash).is_ok())
+    }
+}
+```
+
+## Project Structure
+```
+src/
+├── main.rs              # Application entry point
+├── lib.rs               # Library root
+├── config/              # Configuration management
+├── models/              # Data models and types
+├── services/            # Business logic
+├── repositories/        # Data access layer
+├── handlers/            # HTTP handlers
+├── middleware/          # HTTP middleware
+├── utils/               # Utility functions
+├── errors/              # Error types and handling
+└── tests/               # Integration tests
+
+Cargo.toml               # Dependencies and metadata
+migrations/              # Database migrations
+docker/                  # Docker configuration
+scripts/                 # Build and deployment scripts
+```
+
+## Documentation
+- Use `///` for public API documentation
+- Include usage examples in doc comments
+- Write comprehensive README with setup instructions
+- Document unsafe code blocks thoroughly
+- Use `cargo doc` to generate and review documentation
+- Follow Rust API Guidelines for public APIs

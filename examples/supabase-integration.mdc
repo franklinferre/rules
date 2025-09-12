@@ -1,0 +1,119 @@
+
+---
+description: "Supabase integration examples with real-time features and authentication"
+globs: ["**/supabase/**", "**/database/**"]
+alwaysApply: false
+---
+
+# Supabase Integration Examples
+
+## Authentication & Real-time Setup
+```typescript
+// ✅ Good - Complete Supabase integration
+// lib/supabase.ts
+import { createClient } from '@supabase/supabase-js'
+import { Database } from './database.types'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+
+// hooks/useAuth.ts
+export function useAuth() {
+  const [user, setUser] = useState<User | null>(null)
+  
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user ?? null)
+      }
+    )
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  return { user }
+}
+
+// Real-time subscriptions
+export function useRealtimeData() {
+  const [data, setData] = useState([])
+  
+  useEffect(() => {
+    const channel = supabase
+      .channel('realtime-data')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'posts' },
+        (payload) => {
+          console.log('Change received!', payload)
+          // Update local state
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
+
+  return data
+}
+```
+
+## Database Schema & RLS
+```sql
+-- ✅ Good - Supabase schema with RLS
+-- Create tables
+CREATE TABLE profiles (
+  id UUID REFERENCES auth.users ON DELETE CASCADE,
+  updated_at TIMESTAMP WITH TIME ZONE,
+  username TEXT UNIQUE,
+  full_name TEXT,
+  avatar_url TEXT,
+  website TEXT,
+  PRIMARY KEY (id)
+);
+
+CREATE TABLE posts (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  title TEXT NOT NULL,
+  content TEXT,
+  author_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  published BOOLEAN DEFAULT FALSE
+);
+
+-- Enable RLS
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies
+CREATE POLICY "Public profiles are viewable by everyone" 
+ON profiles FOR SELECT 
+USING (true);
+
+CREATE POLICY "Users can insert their own profile" 
+ON profiles FOR INSERT 
+WITH CHECK (auth.uid() = id);
+
+CREATE POLICY "Users can update own profile" 
+ON profiles FOR UPDATE 
+USING (auth.uid() = id);
+
+CREATE POLICY "Posts are viewable by everyone" 
+ON posts FOR SELECT 
+USING (published = true OR auth.uid() = author_id);
+
+CREATE POLICY "Users can create posts" 
+ON posts FOR INSERT 
+WITH CHECK (auth.uid() = author_id);
+
+CREATE POLICY "Users can update own posts" 
+ON posts FOR UPDATE 
+USING (auth.uid() = author_id);
+```

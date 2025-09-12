@@ -1,0 +1,1303 @@
+
+---
+description: "Java development rules for enterprise applications with Spring Boot"
+globs: ["**/*.java", "**/pom.xml", "**/build.gradle", "**/application.yml"]
+alwaysApply: false
+---
+
+# Java Development Rules
+
+## Core Principles
+- **Clean Code**: Write readable, maintainable code following SOLID principles
+- **Type Safety**: Leverage Java's strong typing system and generics
+- **Modern Java**: Use Java 21+ features and best practices
+- **Spring Boot**: Follow Spring Boot conventions and patterns
+- **Testing**: Comprehensive unit and integration testing with JUnit 5
+
+## Modern Java Features
+
+### Records and Pattern Matching
+```java
+// ✅ Good - Using records for immutable data
+public record UserDto(
+    String id,
+    String name,
+    String email,
+    LocalDateTime createdAt,
+    UserStatus status
+) {
+    // Compact constructor for validation
+    public UserDto {
+        Objects.requireNonNull(id, "ID cannot be null");
+        Objects.requireNonNull(name, "Name cannot be null");
+        Objects.requireNonNull(email, "Email cannot be null");
+        
+        if (name.isBlank()) {
+            throw new IllegalArgumentException("Name cannot be blank");
+        }
+        
+        if (!isValidEmail(email)) {
+            throw new IllegalArgumentException("Invalid email format");
+        }
+    }
+    
+    private static boolean isValidEmail(String email) {
+        return email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+    }
+    
+    // Factory method
+    public static UserDto from(User user) {
+        return new UserDto(
+            user.getId(),
+            user.getName(),
+            user.getEmail(),
+            user.getCreatedAt(),
+            user.getStatus()
+        );
+    }
+}
+
+// ✅ Good - Sealed classes for type safety
+public sealed interface PaymentMethod 
+    permits CreditCard, DebitCard, PayPal, BankTransfer {
+    
+    BigDecimal calculateFee(BigDecimal amount);
+}
+
+public record CreditCard(String number, String holderName) implements PaymentMethod {
+    @Override
+    public BigDecimal calculateFee(BigDecimal amount) {
+        return amount.multiply(BigDecimal.valueOf(0.029)); // 2.9% fee
+    }
+}
+
+public record PayPal(String email) implements PaymentMethod {
+    @Override
+    public BigDecimal calculateFee(BigDecimal amount) {
+        return amount.multiply(BigDecimal.valueOf(0.034)); // 3.4% fee
+    }
+}
+
+// ✅ Good - Pattern matching with switch expressions
+public class PaymentProcessor {
+    
+    public BigDecimal calculateTotalCost(BigDecimal amount, PaymentMethod method) {
+        return switch (method) {
+            case CreditCard(var number, var holder) -> {
+                log.info("Processing credit card payment for {}", holder);
+                yield amount.add(method.calculateFee(amount));
+            }
+            case PayPal(var email) -> {
+                log.info("Processing PayPal payment for {}", email);
+                yield amount.add(method.calculateFee(amount));
+            }
+            case DebitCard(var number, var holder) -> {
+                log.info("Processing debit card payment for {}", holder);
+                yield amount.add(method.calculateFee(amount));
+            }
+            case BankTransfer(var accountNumber) -> {
+                log.info("Processing bank transfer from {}", accountNumber);
+                yield amount; // No fee for bank transfers
+            }
+        };
+    }
+}
+```
+
+### Optional and Stream API
+```java
+// ✅ Good - Proper Optional usage
+@Service
+public class UserService {
+    
+    private final UserRepository userRepository;
+    private final EmailService emailService;
+    
+    public UserService(UserRepository userRepository, EmailService emailService) {
+        this.userRepository = userRepository;
+        this.emailService = emailService;
+    }
+    
+    public Optional<User> findUserById(String id) {
+        return userRepository.findById(id);
+    }
+    
+    public User getUserOrThrow(String id) {
+        return findUserById(id)
+            .orElseThrow(() -> new UserNotFoundException("User not found with ID: " + id));
+    }
+    
+    public Optional<String> getUserEmail(String userId) {
+        return findUserById(userId)
+            .map(User::getEmail)
+            .filter(email -> !email.isBlank());
+    }
+    
+    public void sendWelcomeEmailIfUserExists(String userId) {
+        findUserById(userId)
+            .filter(User::isActive)
+            .ifPresent(user -> {
+                emailService.sendWelcomeEmail(user.getEmail(), user.getName());
+                log.info("Welcome email sent to user: {}", user.getId());
+            });
+    }
+    
+    // ✅ Good - Stream API usage
+    public List<UserDto> getActiveUsersCreatedAfter(LocalDateTime date) {
+        return userRepository.findAll().stream()
+            .filter(User::isActive)
+            .filter(user -> user.getCreatedAt().isAfter(date))
+            .sorted(Comparator.comparing(User::getCreatedAt).reversed())
+            .map(UserDto::from)
+            .collect(Collectors.toList());
+    }
+    
+    public Map<UserStatus, Long> getUserCountByStatus() {
+        return userRepository.findAll().stream()
+            .collect(Collectors.groupingBy(
+                User::getStatus,
+                Collectors.counting()
+            ));
+    }
+    
+    public Optional<User> findMostRecentActiveUser() {
+        return userRepository.findAll().stream()
+            .filter(User::isActive)
+            .max(Comparator.comparing(User::getCreatedAt));
+    }
+}
+```
+
+## Spring Boot Best Practices
+
+### Configuration and Properties
+```java
+// ✅ Good - Configuration properties with validation
+@ConfigurationProperties(prefix = "app")
+@Validated
+public record AppProperties(
+    @NotBlank String name,
+    @NotBlank String version,
+    @Valid Database database,
+    @Valid Security security,
+    @Valid Email email
+) {
+    
+    public record Database(
+        @NotBlank String url,
+        @NotBlank String username,
+        @NotBlank String password,
+        @Min(1) @Max(100) int maxPoolSize,
+        @Min(1000) long connectionTimeoutMs
+    ) {}
+    
+    public record Security(
+        @NotBlank String jwtSecret,
+        @Min(300) @Max(86400) long jwtExpirationSeconds,
+        @Min(3) @Max(10) int maxLoginAttempts
+    ) {}
+    
+    public record Email(
+        @NotBlank String host,
+        @Min(1) @Max(65535) int port,
+        @NotBlank String username,
+        @NotBlank String password,
+        boolean enableTls
+    ) {}
+}
+
+// ✅ Good - Configuration class
+@Configuration
+@EnableConfigurationProperties(AppProperties.class)
+public class AppConfig {
+    
+    @Bean
+    @ConditionalOnMissingBean
+    public Clock clock() {
+        return Clock.systemDefaultZone();
+    }
+    
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder(12);
+    }
+    
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplateBuilder()
+            .setConnectTimeout(Duration.ofSeconds(10))
+            .setReadTimeout(Duration.ofSeconds(30))
+            .build();
+    }
+    
+    @Bean
+    @ConditionalOnProperty(name = "app.email.enabled", havingValue = "true")
+    public JavaMailSender mailSender(AppProperties properties) {
+        JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
+        mailSender.setHost(properties.email().host());
+        mailSender.setPort(properties.email().port());
+        mailSender.setUsername(properties.email().username());
+        mailSender.setPassword(properties.email().password());
+        
+        Properties props = mailSender.getJavaMailProperties();
+        props.put("mail.transport.protocol", "smtp");
+        props.put("mail.smtp.auth", "true");
+        props.put("mail.smtp.starttls.enable", properties.email().enableTls());
+        
+        return mailSender;
+    }
+}
+```
+
+### REST Controllers
+```java
+// ✅ Good - REST controller with proper structure
+@RestController
+@RequestMapping("/api/v1/users")
+@Validated
+@Slf4j
+public class UserController {
+    
+    private final UserService userService;
+    
+    public UserController(UserService userService) {
+        this.userService = userService;
+    }
+    
+    @GetMapping
+    public ResponseEntity<PagedResponse<UserDto>> getUsers(
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) UserStatus status) {
+        
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<UserDto> users = userService.findUsers(search, status, pageable);
+        
+        PagedResponse<UserDto> response = PagedResponse.of(users);
+        return ResponseEntity.ok(response);
+    }
+    
+    @GetMapping("/{id}")
+    public ResponseEntity<UserDto> getUser(@PathVariable @NotBlank String id) {
+        return userService.findUserById(id)
+            .map(UserDto::from)
+            .map(ResponseEntity::ok)
+            .orElse(ResponseEntity.notFound().build());
+    }
+    
+    @PostMapping
+    public ResponseEntity<UserDto> createUser(@RequestBody @Valid CreateUserRequest request) {
+        User user = userService.createUser(request);
+        UserDto userDto = UserDto.from(user);
+        
+        URI location = ServletUriComponentsBuilder
+            .fromCurrentRequest()
+            .path("/{id}")
+            .buildAndExpand(user.getId())
+            .toUri();
+        
+        return ResponseEntity.created(location).body(userDto);
+    }
+    
+    @PutMapping("/{id}")
+    public ResponseEntity<UserDto> updateUser(
+            @PathVariable @NotBlank String id,
+            @RequestBody @Valid UpdateUserRequest request) {
+        
+        User updatedUser = userService.updateUser(id, request);
+        return ResponseEntity.ok(UserDto.from(updatedUser));
+    }
+    
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteUser(@PathVariable @NotBlank String id) {
+        userService.deleteUser(id);
+        return ResponseEntity.noContent().build();
+    }
+    
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<UserDto> updateUserStatus(
+            @PathVariable @NotBlank String id,
+            @RequestBody @Valid UpdateStatusRequest request) {
+        
+        User user = userService.updateUserStatus(id, request.status());
+        return ResponseEntity.ok(UserDto.from(user));
+    }
+}
+
+// ✅ Good - Request/Response DTOs with validation
+public record CreateUserRequest(
+    @NotBlank @Size(min = 2, max = 100) String name,
+    @NotBlank @Email @Size(max = 255) String email,
+    @NotBlank @Size(min = 8, max = 100) String password,
+    @Valid List<@NotBlank String> roles
+) {}
+
+public record UpdateUserRequest(
+    @Size(min = 2, max = 100) String name,
+    @Email @Size(max = 255) String email,
+    @Valid List<@NotBlank String> roles
+) {}
+
+public record UpdateStatusRequest(
+    @NotNull UserStatus status
+) {}
+
+// ✅ Good - Paged response wrapper
+public record PagedResponse<T>(
+    List<T> content,
+    int page,
+    int size,
+    long totalElements,
+    int totalPages,
+    boolean first,
+    boolean last
+) {
+    public static <T> PagedResponse<T> of(Page<T> page) {
+        return new PagedResponse<>(
+            page.getContent(),
+            page.getNumber(),
+            page.getSize(),
+            page.getTotalElements(),
+            page.getTotalPages(),
+            page.isFirst(),
+            page.isLast()
+        );
+    }
+}
+```
+
+### Service Layer
+```java
+// ✅ Good - Service layer with transaction management
+@Service
+@Transactional(readOnly = true)
+@Slf4j
+public class UserService {
+    
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final ApplicationEventPublisher eventPublisher;
+    private final Clock clock;
+    
+    public UserService(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            ApplicationEventPublisher eventPublisher,
+            Clock clock) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.eventPublisher = eventPublisher;
+        this.clock = clock;
+    }
+    
+    public Page<UserDto> findUsers(String search, UserStatus status, Pageable pageable) {
+        Specification<User> spec = UserSpecifications.withSearchAndStatus(search, status);
+        return userRepository.findAll(spec, pageable)
+            .map(UserDto::from);
+    }
+    
+    public Optional<User> findUserById(String id) {
+        return userRepository.findById(id);
+    }
+    
+    @Transactional
+    public User createUser(CreateUserRequest request) {
+        validateUniqueEmail(request.email());
+        
+        User user = User.builder()
+            .id(UUID.randomUUID().toString())
+            .name(request.name())
+            .email(request.email().toLowerCase())
+            .password(passwordEncoder.encode(request.password()))
+            .status(UserStatus.ACTIVE)
+            .createdAt(LocalDateTime.now(clock))
+            .updatedAt(LocalDateTime.now(clock))
+            .build();
+        
+        User savedUser = userRepository.save(user);
+        
+        log.info("User created: {}", savedUser.getId());
+        eventPublisher.publishEvent(new UserCreatedEvent(savedUser));
+        
+        return savedUser;
+    }
+    
+    @Transactional
+    public User updateUser(String id, UpdateUserRequest request) {
+        User user = getUserOrThrow(id);
+        
+        if (request.email() != null && !request.email().equals(user.getEmail())) {
+            validateUniqueEmail(request.email());
+            user.setEmail(request.email().toLowerCase());
+        }
+        
+        if (request.name() != null) {
+            user.setName(request.name());
+        }
+        
+        user.setUpdatedAt(LocalDateTime.now(clock));
+        
+        User updatedUser = userRepository.save(user);
+        
+        log.info("User updated: {}", updatedUser.getId());
+        eventPublisher.publishEvent(new UserUpdatedEvent(updatedUser));
+        
+        return updatedUser;
+    }
+    
+    @Transactional
+    public User updateUserStatus(String id, UserStatus status) {
+        User user = getUserOrThrow(id);
+        
+        if (user.getStatus() == status) {
+            return user; // No change needed
+        }
+        
+        UserStatus previousStatus = user.getStatus();
+        user.setStatus(status);
+        user.setUpdatedAt(LocalDateTime.now(clock));
+        
+        User updatedUser = userRepository.save(user);
+        
+        log.info("User status updated: {} from {} to {}", 
+            updatedUser.getId(), previousStatus, status);
+        
+        eventPublisher.publishEvent(new UserStatusChangedEvent(updatedUser, previousStatus));
+        
+        return updatedUser;
+    }
+    
+    @Transactional
+    public void deleteUser(String id) {
+        User user = getUserOrThrow(id);
+        
+        userRepository.delete(user);
+        
+        log.info("User deleted: {}", user.getId());
+        eventPublisher.publishEvent(new UserDeletedEvent(user));
+    }
+    
+    private User getUserOrThrow(String id) {
+        return userRepository.findById(id)
+            .orElseThrow(() -> new UserNotFoundException("User not found with ID: " + id));
+    }
+    
+    private void validateUniqueEmail(String email) {
+        if (userRepository.existsByEmailIgnoreCase(email)) {
+            throw new EmailAlreadyExistsException("Email already exists: " + email);
+        }
+    }
+}
+```
+
+### JPA Entities and Repositories
+```java
+// ✅ Good - JPA entity with proper annotations
+@Entity
+@Table(name = "users", indexes = {
+    @Index(name = "idx_user_email", columnList = "email"),
+    @Index(name = "idx_user_status", columnList = "status"),
+    @Index(name = "idx_user_created_at", columnList = "created_at")
+})
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Getter
+@Setter
+@ToString(exclude = {"password"})
+@EqualsAndHashCode(of = {"id"})
+public class User {
+    
+    @Id
+    @Column(name = "id", length = 36)
+    private String id;
+    
+    @Column(name = "name", nullable = false, length = 100)
+    @NotBlank
+    @Size(min = 2, max = 100)
+    private String name;
+    
+    @Column(name = "email", nullable = false, unique = true, length = 255)
+    @NotBlank
+    @Email
+    @Size(max = 255)
+    private String email;
+    
+    @Column(name = "password", nullable = false)
+    @NotBlank
+    private String password;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    @NotNull
+    private UserStatus status;
+    
+    @Column(name = "created_at", nullable = false)
+    @NotNull
+    private LocalDateTime createdAt;
+    
+    @Column(name = "updated_at", nullable = false)
+    @NotNull
+    private LocalDateTime updatedAt;
+    
+    @Version
+    @Column(name = "version")
+    private Long version;
+    
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<UserRole> roles = new ArrayList<>();
+    
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+        if (updatedAt == null) {
+            updatedAt = LocalDateTime.now();
+        }
+    }
+    
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+    
+    public boolean isActive() {
+        return status == UserStatus.ACTIVE;
+    }
+    
+    public void addRole(Role role) {
+        UserRole userRole = new UserRole(this, role);
+        roles.add(userRole);
+    }
+    
+    public void removeRole(Role role) {
+        roles.removeIf(userRole -> userRole.getRole().equals(role));
+    }
+    
+    public Set<String> getRoleNames() {
+        return roles.stream()
+            .map(userRole -> userRole.getRole().getName())
+            .collect(Collectors.toSet());
+    }
+}
+
+// ✅ Good - Repository with custom queries
+@Repository
+public interface UserRepository extends JpaRepository<User, String>, JpaSpecificationExecutor<User> {
+    
+    Optional<User> findByEmailIgnoreCase(String email);
+    
+    boolean existsByEmailIgnoreCase(String email);
+    
+    List<User> findByStatus(UserStatus status);
+    
+    @Query("SELECT u FROM User u WHERE u.status = :status AND u.createdAt >= :since")
+    List<User> findActiveUsersSince(@Param("status") UserStatus status, @Param("since") LocalDateTime since);
+    
+    @Query("SELECT u FROM User u JOIN u.roles ur WHERE ur.role.name = :roleName")
+    List<User> findByRoleName(@Param("roleName") String roleName);
+    
+    @Modifying
+    @Query("UPDATE User u SET u.status = :status WHERE u.id IN :ids")
+    int updateStatusForUsers(@Param("status") UserStatus status, @Param("ids") List<String> ids);
+    
+    // ✅ Good - Native query for complex operations
+    @Query(value = """
+        SELECT u.* FROM users u 
+        WHERE u.status = 'ACTIVE' 
+        AND u.created_at >= :startDate 
+        AND EXISTS (
+            SELECT 1 FROM user_roles ur 
+            JOIN roles r ON ur.role_id = r.id 
+            WHERE ur.user_id = u.id AND r.name = :roleName
+        )
+        ORDER BY u.created_at DESC
+        """, nativeQuery = true)
+    List<User> findActiveUsersWithRoleSince(
+        @Param("roleName") String roleName, 
+        @Param("startDate") LocalDateTime startDate
+    );
+}
+
+// ✅ Good - Specifications for dynamic queries
+public class UserSpecifications {
+    
+    public static Specification<User> withSearchAndStatus(String search, UserStatus status) {
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            
+            if (search != null && !search.isBlank()) {
+                String searchPattern = "%" + search.toLowerCase() + "%";
+                Predicate namePredicate = criteriaBuilder.like(
+                    criteriaBuilder.lower(root.get("name")), searchPattern);
+                Predicate emailPredicate = criteriaBuilder.like(
+                    criteriaBuilder.lower(root.get("email")), searchPattern);
+                
+                predicates.add(criteriaBuilder.or(namePredicate, emailPredicate));
+            }
+            
+            if (status != null) {
+                predicates.add(criteriaBuilder.equal(root.get("status"), status));
+            }
+            
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+    
+    public static Specification<User> createdAfter(LocalDateTime date) {
+        return (root, query, criteriaBuilder) -> 
+            criteriaBuilder.greaterThanOrEqualTo(root.get("createdAt"), date);
+    }
+    
+    public static Specification<User> hasRole(String roleName) {
+        return (root, query, criteriaBuilder) -> {
+            Join<User, UserRole> userRoles = root.join("roles");
+            Join<UserRole, Role> roles = userRoles.join("role");
+            return criteriaBuilder.equal(roles.get("name"), roleName);
+        };
+    }
+}
+```
+
+## Exception Handling
+
+### Global Exception Handler
+```java
+// ✅ Good - Global exception handler
+@RestControllerAdvice
+@Slf4j
+public class GlobalExceptionHandler {
+    
+    @ExceptionHandler(UserNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleUserNotFound(UserNotFoundException ex) {
+        log.warn("User not found: {}", ex.getMessage());
+        
+        ErrorResponse error = ErrorResponse.builder()
+            .code("USER_NOT_FOUND")
+            .message(ex.getMessage())
+            .timestamp(Instant.now())
+            .build();
+        
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+    
+    @ExceptionHandler(EmailAlreadyExistsException.class)
+    public ResponseEntity<ErrorResponse> handleEmailAlreadyExists(EmailAlreadyExistsException ex) {
+        log.warn("Email already exists: {}", ex.getMessage());
+        
+        ErrorResponse error = ErrorResponse.builder()
+            .code("EMAIL_ALREADY_EXISTS")
+            .message(ex.getMessage())
+            .timestamp(Instant.now())
+            .build();
+        
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+    
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ValidationErrorResponse> handleValidationErrors(
+            MethodArgumentNotValidException ex) {
+        
+        log.warn("Validation failed: {}", ex.getMessage());
+        
+        Map<String, String> errors = ex.getBindingResult()
+            .getFieldErrors()
+            .stream()
+            .collect(Collectors.toMap(
+                FieldError::getField,
+                error -> error.getDefaultMessage() != null ? error.getDefaultMessage() : "Invalid value",
+                (existing, replacement) -> existing
+            ));
+        
+        ValidationErrorResponse errorResponse = ValidationErrorResponse.builder()
+            .code("VALIDATION_FAILED")
+            .message("Request validation failed")
+            .errors(errors)
+            .timestamp(Instant.now())
+            .build();
+        
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+    
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ValidationErrorResponse> handleConstraintViolation(
+            ConstraintViolationException ex) {
+        
+        log.warn("Constraint violation: {}", ex.getMessage());
+        
+        Map<String, String> errors = ex.getConstraintViolations()
+            .stream()
+            .collect(Collectors.toMap(
+                violation -> violation.getPropertyPath().toString(),
+                ConstraintViolation::getMessage,
+                (existing, replacement) -> existing
+            ));
+        
+        ValidationErrorResponse errorResponse = ValidationErrorResponse.builder()
+            .code("CONSTRAINT_VIOLATION")
+            .message("Request constraint violation")
+            .errors(errors)
+            .timestamp(Instant.now())
+            .build();
+        
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+    
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(
+            DataIntegrityViolationException ex) {
+        
+        log.error("Data integrity violation", ex);
+        
+        ErrorResponse error = ErrorResponse.builder()
+            .code("DATA_INTEGRITY_VIOLATION")
+            .message("Data integrity constraint violated")
+            .timestamp(Instant.now())
+            .build();
+        
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+    
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
+        log.error("Unexpected error occurred", ex);
+        
+        ErrorResponse error = ErrorResponse.builder()
+            .code("INTERNAL_SERVER_ERROR")
+            .message("An unexpected error occurred")
+            .timestamp(Instant.now())
+            .build();
+        
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    }
+}
+
+// ✅ Good - Error response DTOs
+@Builder
+public record ErrorResponse(
+    String code,
+    String message,
+    Instant timestamp
+) {}
+
+@Builder
+public record ValidationErrorResponse(
+    String code,
+    String message,
+    Map<String, String> errors,
+    Instant timestamp
+) {}
+
+// ✅ Good - Custom exceptions
+public class UserNotFoundException extends RuntimeException {
+    public UserNotFoundException(String message) {
+        super(message);
+    }
+}
+
+public class EmailAlreadyExistsException extends RuntimeException {
+    public EmailAlreadyExistsException(String message) {
+        super(message);
+    }
+}
+```
+
+## Testing
+
+### Unit Testing with JUnit 5
+```java
+// ✅ Good - Unit test with proper structure
+@ExtendWith(MockitoExtension.class)
+class UserServiceTest {
+    
+    @Mock
+    private UserRepository userRepository;
+    
+    @Mock
+    private PasswordEncoder passwordEncoder;
+    
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+    
+    @Mock
+    private Clock clock;
+    
+    @InjectMocks
+    private UserService userService;
+    
+    private final LocalDateTime fixedTime = LocalDateTime.of(2024, 1, 1, 12, 0);
+    
+    @BeforeEach
+    void setUp() {
+        when(clock.instant()).thenReturn(fixedTime.atZone(ZoneId.systemDefault()).toInstant());
+        when(clock.getZone()).thenReturn(ZoneId.systemDefault());
+    }
+    
+    @Test
+    @DisplayName("Should create user successfully with valid data")
+    void shouldCreateUserSuccessfully() {
+        // Given
+        CreateUserRequest request = new CreateUserRequest(
+            "John Doe",
+            "john@example.com",
+            "password123",
+            List.of("USER")
+        );
+        
+        String encodedPassword = "encoded-password";
+        when(passwordEncoder.encode("password123")).thenReturn(encodedPassword);
+        when(userRepository.existsByEmailIgnoreCase("john@example.com")).thenReturn(false);
+        
+        User savedUser = User.builder()
+            .id("user-id")
+            .name("John Doe")
+            .email("john@example.com")
+            .password(encodedPassword)
+            .status(UserStatus.ACTIVE)
+            .createdAt(fixedTime)
+            .updatedAt(fixedTime)
+            .build();
+        
+        when(userRepository.save(any(User.class))).thenReturn(savedUser);
+        
+        // When
+        User result = userService.createUser(request);
+        
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.getName()).isEqualTo("John Doe");
+        assertThat(result.getEmail()).isEqualTo("john@example.com");
+        assertThat(result.getPassword()).isEqualTo(encodedPassword);
+        assertThat(result.getStatus()).isEqualTo(UserStatus.ACTIVE);
+        
+        verify(userRepository).existsByEmailIgnoreCase("john@example.com");
+        verify(passwordEncoder).encode("password123");
+        verify(userRepository).save(any(User.class));
+        verify(eventPublisher).publishEvent(any(UserCreatedEvent.class));
+    }
+    
+    @Test
+    @DisplayName("Should throw exception when email already exists")
+    void shouldThrowExceptionWhenEmailAlreadyExists() {
+        // Given
+        CreateUserRequest request = new CreateUserRequest(
+            "John Doe",
+            "john@example.com",
+            "password123",
+            List.of("USER")
+        );
+        
+        when(userRepository.existsByEmailIgnoreCase("john@example.com")).thenReturn(true);
+        
+        // When & Then
+        assertThatThrownBy(() -> userService.createUser(request))
+            .isInstanceOf(EmailAlreadyExistsException.class)
+            .hasMessage("Email already exists: john@example.com");
+        
+        verify(userRepository).existsByEmailIgnoreCase("john@example.com");
+        verify(passwordEncoder, never()).encode(anyString());
+        verify(userRepository, never()).save(any(User.class));
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+    
+    @ParameterizedTest
+    @DisplayName("Should find user by different search criteria")
+    @CsvSource({
+        "john, ACTIVE, 1",
+        "doe, ACTIVE, 1",
+        "jane, ACTIVE, 0",
+        "john, INACTIVE, 0"
+    })
+    void shouldFindUsersBySearchCriteria(String search, UserStatus status, int expectedCount) {
+        // Given
+        User user = User.builder()
+            .id("user-id")
+            .name("John Doe")
+            .email("john@example.com")
+            .status(UserStatus.ACTIVE)
+            .build();
+        
+        List<User> users = expectedCount > 0 ? List.of(user) : List.of();
+        Page<User> userPage = new PageImpl<>(users);
+        
+        when(userRepository.findAll(any(Specification.class), any(Pageable.class)))
+            .thenReturn(userPage);
+        
+        // When
+        Page<UserDto> result = userService.findUsers(search, status, Pageable.unpaged());
+        
+        // Then
+        assertThat(result.getContent()).hasSize(expectedCount);
+        verify(userRepository).findAll(any(Specification.class), any(Pageable.class));
+    }
+    
+    @Test
+    @DisplayName("Should handle user not found scenario")
+    void shouldHandleUserNotFound() {
+        // Given
+        String userId = "non-existent-id";
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+        
+        // When & Then
+        assertThatThrownBy(() -> userService.updateUser(userId, new UpdateUserRequest("New Name", null, null)))
+            .isInstanceOf(UserNotFoundException.class)
+            .hasMessage("User not found with ID: non-existent-id");
+        
+        verify(userRepository).findById(userId);
+    }
+}
+
+// ✅ Good - Integration test
+@SpringBootTest
+@Testcontainers
+@Transactional
+class UserServiceIntegrationTest {
+    
+    @Container
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15")
+            .withDatabaseName("testdb")
+            .withUsername("test")
+            .withPassword("test");
+    
+    @DynamicPropertySource
+    static void configureProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        registry.add("spring.datasource.username", postgres::getUsername);
+        registry.add("spring.datasource.password", postgres::getPassword);
+    }
+    
+    @Autowired
+    private UserService userService;
+    
+    @Autowired
+    private UserRepository userRepository;
+    
+    @Test
+    @DisplayName("Should create and retrieve user from database")
+    void shouldCreateAndRetrieveUser() {
+        // Given
+        CreateUserRequest request = new CreateUserRequest(
+            "Integration Test User",
+            "integration@example.com",
+            "password123",
+            List.of("USER")
+        );
+        
+        // When
+        User createdUser = userService.createUser(request);
+        Optional<User> retrievedUser = userService.findUserById(createdUser.getId());
+        
+        // Then
+        assertThat(retrievedUser).isPresent();
+        assertThat(retrievedUser.get().getName()).isEqualTo("Integration Test User");
+        assertThat(retrievedUser.get().getEmail()).isEqualTo("integration@example.com");
+        assertThat(retrievedUser.get().getStatus()).isEqualTo(UserStatus.ACTIVE);
+        
+        // Verify in database
+        Optional<User> dbUser = userRepository.findById(createdUser.getId());
+        assertThat(dbUser).isPresent();
+        assertThat(dbUser.get().getName()).isEqualTo("Integration Test User");
+    }
+    
+    @Test
+    @DisplayName("Should update user and maintain data integrity")
+    void shouldUpdateUserAndMaintainDataIntegrity() {
+        // Given
+        User user = createTestUser();
+        UpdateUserRequest updateRequest = new UpdateUserRequest(
+            "Updated Name",
+            "updated@example.com",
+            List.of("ADMIN")
+        );
+        
+        // When
+        User updatedUser = userService.updateUser(user.getId(), updateRequest);
+        
+        // Then
+        assertThat(updatedUser.getName()).isEqualTo("Updated Name");
+        assertThat(updatedUser.getEmail()).isEqualTo("updated@example.com");
+        assertThat(updatedUser.getUpdatedAt()).isAfter(user.getUpdatedAt());
+        
+        // Verify version was incremented (optimistic locking)
+        assertThat(updatedUser.getVersion()).isGreaterThan(user.getVersion());
+    }
+    
+    private User createTestUser() {
+        CreateUserRequest request = new CreateUserRequest(
+            "Test User",
+            "test@example.com",
+            "password123",
+            List.of("USER")
+        );
+        return userService.createUser(request);
+    }
+}
+```
+
+## Security Best Practices
+
+### Input Validation and Sanitization
+```java
+// ✅ Good - Input validation service
+@Service
+public class ValidationService {
+    
+    private static final Pattern EMAIL_PATTERN = Pattern.compile(
+        "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"
+    );
+    
+    private static final Pattern PASSWORD_PATTERN = Pattern.compile(
+        "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$"
+    );
+    
+    public void validateEmail(String email) {
+        if (email == null || email.isBlank()) {
+            throw new ValidationException("Email cannot be empty");
+        }
+        
+        if (email.length() > 255) {
+            throw new ValidationException("Email is too long");
+        }
+        
+        if (!EMAIL_PATTERN.matcher(email).matches()) {
+            throw new ValidationException("Invalid email format");
+        }
+    }
+    
+    public void validatePassword(String password) {
+        if (password == null || password.isBlank()) {
+            throw new ValidationException("Password cannot be empty");
+        }
+        
+        if (password.length() < 8 || password.length() > 100) {
+            throw new ValidationException("Password must be between 8 and 100 characters");
+        }
+        
+        if (!PASSWORD_PATTERN.matcher(password).matches()) {
+            throw new ValidationException(
+                "Password must contain at least one uppercase letter, " +
+                "one lowercase letter, one digit, and one special character"
+            );
+        }
+    }
+    
+    public String sanitizeInput(String input, int maxLength) {
+        if (input == null) {
+            return null;
+        }
+        
+        // Remove control characters except newlines and tabs
+        String sanitized = input.replaceAll("[\\p{Cntrl}&&[^\n\t]]", "");
+        
+        // Trim whitespace
+        sanitized = sanitized.trim();
+        
+        // Limit length
+        if (sanitized.length() > maxLength) {
+            sanitized = sanitized.substring(0, maxLength);
+        }
+        
+        return sanitized;
+    }
+    
+    public void validateSqlInjection(String input) {
+        if (input == null) {
+            return;
+        }
+        
+        String lowerInput = input.toLowerCase();
+        String[] sqlKeywords = {
+            "select", "insert", "update", "delete", "drop", "create",
+            "alter", "exec", "execute", "union", "script", "javascript"
+        };
+        
+        for (String keyword : sqlKeywords) {
+            if (lowerInput.contains(keyword)) {
+                throw new SecurityException("Potentially malicious input detected");
+            }
+        }
+    }
+}
+
+// ✅ Good - Security configuration
+@Configuration
+@EnableWebSecurity
+@EnableMethodSecurity
+public class SecurityConfig {
+    
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+    private final JwtRequestFilter jwtRequestFilter;
+    
+    public SecurityConfig(
+            JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
+            JwtRequestFilter jwtRequestFilter) {
+        this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
+        this.jwtRequestFilter = jwtRequestFilter;
+    }
+    
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        return http
+            .csrf(csrf -> csrf.disable())
+            .sessionManagement(session -> 
+                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/v1/auth/**").permitAll()
+                .requestMatchers("/api/v1/public/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/users/**").hasRole("USER")
+                .requestMatchers(HttpMethod.POST, "/api/v1/users/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/v1/users/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/v1/users/**").hasRole("ADMIN")
+                .anyRequest().authenticated()
+            )
+            .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthenticationEntryPoint))
+            .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class)
+            .headers(headers -> headers
+                .frameOptions().deny()
+                .contentTypeOptions().and()
+                .httpStrictTransportSecurity(hsts -> hsts
+                    .maxAgeInSeconds(31536000)
+                    .includeSubdomains(true)
+                )
+            )
+            .build();
+    }
+    
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOriginPatterns(List.of("https://*.example.com"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
+        
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/api/**", configuration);
+        return source;
+    }
+}
+```
+
+## Performance and Caching
+
+### Caching Configuration
+```java
+// ✅ Good - Caching configuration
+@Configuration
+@EnableCaching
+public class CacheConfig {
+    
+    @Bean
+    public CacheManager cacheManager() {
+        RedisCacheManager.Builder builder = RedisCacheManager
+            .RedisCacheManagerBuilder
+            .fromConnectionFactory(redisConnectionFactory())
+            .cacheDefaults(cacheConfiguration());
+        
+        return builder.build();
+    }
+    
+    @Bean
+    public RedisConnectionFactory redisConnectionFactory() {
+        LettuceConnectionFactory factory = new LettuceConnectionFactory(
+            new RedisStandaloneConfiguration("localhost", 6379)
+        );
+        factory.setValidateConnection(true);
+        return factory;
+    }
+    
+    private RedisCacheConfiguration cacheConfiguration() {
+        return RedisCacheConfiguration.defaultCacheConfig()
+            .entryTtl(Duration.ofMinutes(30))
+            .serializeKeysWith(RedisSerializationContext.SerializationPair
+                .fromSerializer(new StringRedisSerializer()))
+            .serializeValuesWith(RedisSerializationContext.SerializationPair
+                .fromSerializer(new GenericJackson2JsonRedisSerializer()));
+    }
+}
+
+// ✅ Good - Service with caching
+@Service
+@CacheConfig(cacheNames = "users")
+public class CachedUserService {
+    
+    private final UserRepository userRepository;
+    
+    public CachedUserService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+    
+    @Cacheable(key = "#id")
+    public Optional<User> findUserById(String id) {
+        return userRepository.findById(id);
+    }
+    
+    @Cacheable(key = "#email")
+    public Optional<User> findUserByEmail(String email) {
+        return userRepository.findByEmailIgnoreCase(email);
+    }
+    
+    @CachePut(key = "#result.id")
+    public User saveUser(User user) {
+        return userRepository.save(user);
+    }
+    
+    @CacheEvict(key = "#id")
+    public void deleteUser(String id) {
+        userRepository.deleteById(id);
+    }
+    
+    @CacheEvict(allEntries = true)
+    public void clearAllUsers() {
+        // This will clear all entries in the "users" cache
+    }
+    
+    @Cacheable(key = "#status.name() + '_' + #pageable.pageNumber + '_' + #pageable.pageSize")
+    public Page<User> findUsersByStatus(UserStatus status, Pageable pageable) {
+        return userRepository.findAll(
+            UserSpecifications.withStatus(status), 
+            pageable
+        );
+    }
+}
+```
+
+## Project Structure
+```
+src/main/java/com/example/app/
+├── config/              # Configuration classes
+├── controller/          # REST controllers
+├── service/            # Business logic services
+├── repository/         # Data access repositories
+├── entity/             # JPA entities
+├── dto/                # Data transfer objects
+├── exception/          # Custom exceptions
+├── security/           # Security configuration
+├── validation/         # Custom validators
+├── event/              # Application events
+└── util/               # Utility classes
+
+src/main/resources/
+├── application.yml     # Application configuration
+├── application-dev.yml # Development configuration
+├── application-prod.yml # Production configuration
+└── db/migration/       # Flyway migrations
+
+src/test/java/
+├── unit/               # Unit tests
+├── integration/        # Integration tests
+└── testcontainers/     # Container-based tests
+```
+
+## Documentation
+- Use comprehensive JavaDoc comments for all public APIs
+- Include parameter and return value documentation
+- Provide usage examples in class-level documentation
+- Document complex business logic and algorithms
+- Maintain README with setup and deployment instructions
+- Use OpenAPI/Swagger for API documentation
+- Follow Java naming conventions and coding standards

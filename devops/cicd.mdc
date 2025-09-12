@@ -1,0 +1,1141 @@
+
+---
+description: "CI/CD pipeline rules for automated deployment and quality assurance"
+globs: ["**/.github/workflows/*.yml", "**/.gitlab-ci.yml", "**/azure-pipelines.yml", "**/Jenkinsfile"]
+alwaysApply: false
+---
+
+# CI/CD Pipeline Rules
+
+## Core Principles
+- **Pipeline as Code**: All CI/CD configurations should be version controlled
+- **Fail Fast**: Implement early validation and quick feedback loops
+- **Security First**: Integrate security scanning at every stage
+- **Reproducible Builds**: Ensure consistent environments across stages
+- **Automated Testing**: Comprehensive test coverage with automated execution
+
+## GitHub Actions Best Practices
+
+### Workflow Structure
+```yaml
+# ✅ Good - Comprehensive workflow structure
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  release:
+    types: [published]
+
+env:
+  NODE_VERSION: '20'
+  PYTHON_VERSION: '3.11'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Validation and Quality Checks
+  validate:
+    name: Code Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Lint code
+        run: |
+          npm run lint
+          npm run format:check
+      
+      - name: Type checking
+        run: npm run type-check
+      
+      - name: Security audit
+        run: npm audit --audit-level=high
+      
+      - name: License compliance
+        run: npm run license-check
+
+  # Unit and Integration Tests
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: validate
+    
+    strategy:
+      matrix:
+        test-type: [unit, integration, e2e]
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run tests
+        run: npm run test:${{ matrix.test-type }}
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/testdb
+          REDIS_URL: redis://localhost:6379
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        if: matrix.test-type == 'unit'
+        with:
+          file: ./coverage/lcov.info
+          fail_ci_if_error: true
+
+  # Security Scanning
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: validate
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+      
+      - name: SAST with CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: javascript, typescript
+      
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+
+  # Build and Package
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [test, security]
+    
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-tag: ${{ steps.meta.outputs.tags }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+      
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NODE_VERSION=${{ env.NODE_VERSION }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VCS_REF=${{ github.sha }}
+
+  # Deployment to Staging
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: build
+    if: github.ref == 'refs/heads/develop'
+    environment:
+      name: staging
+      url: https://staging.example.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+      
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name staging-cluster --region us-west-2
+      
+      - name: Deploy to Kubernetes
+        run: |
+          envsubst < k8s/deployment.yaml | kubectl apply -f -
+          kubectl rollout status deployment/app -n staging --timeout=300s
+        env:
+          IMAGE_TAG: ${{ needs.build.outputs.image-tag }}
+          NAMESPACE: staging
+      
+      - name: Run smoke tests
+        run: |
+          kubectl wait --for=condition=ready pod -l app=myapp -n staging --timeout=300s
+          npm run test:smoke -- --baseUrl=https://staging.example.com
+
+  # Deployment to Production
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: build
+    if: github.event_name == 'release'
+    environment:
+      name: production
+      url: https://example.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+      
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name production-cluster --region us-west-2
+      
+      - name: Blue-Green Deployment
+        run: |
+          # Deploy to green environment
+          envsubst < k8s/deployment-green.yaml | kubectl apply -f -
+          kubectl rollout status deployment/app-green -n production --timeout=600s
+          
+          # Run health checks
+          kubectl wait --for=condition=ready pod -l app=myapp,version=green -n production --timeout=300s
+          
+          # Switch traffic to green
+          kubectl patch service app-service -n production -p '{"spec":{"selector":{"version":"green"}}}'
+          
+          # Cleanup blue environment after successful deployment
+          sleep 300
+          kubectl delete deployment app-blue -n production --ignore-not-found=true
+        env:
+          IMAGE_TAG: ${{ needs.build.outputs.image-tag }}
+          NAMESPACE: production
+      
+      - name: Post-deployment verification
+        run: |
+          npm run test:smoke -- --baseUrl=https://example.com
+          npm run test:performance -- --baseUrl=https://example.com
+```
+
+### Reusable Workflows
+```yaml
+# ✅ Good - Reusable workflow for testing
+# .github/workflows/test-reusable.yml
+name: Reusable Test Workflow
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        required: false
+        type: string
+        default: '20'
+      test-command:
+        required: false
+        type: string
+        default: 'npm test'
+      coverage-threshold:
+        required: false
+        type: number
+        default: 80
+    secrets:
+      DATABASE_URL:
+        required: true
+      REDIS_URL:
+        required: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run tests
+        run: ${{ inputs.test-command }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+      
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(npm run coverage:check | grep -o '[0-9]*\.[0-9]*' | head -1)
+          if (( $(echo "$COVERAGE < ${{ inputs.coverage-threshold }}" | bc -l) )); then
+            echo "Coverage $COVERAGE% is below threshold ${{ inputs.coverage-threshold }}%"
+            exit 1
+          fi
+```
+
+## GitLab CI Best Practices
+
+### Pipeline Configuration
+```yaml
+# ✅ Good - GitLab CI pipeline
+stages:
+  - validate
+  - test
+  - security
+  - build
+  - deploy-staging
+  - deploy-production
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+  NODE_VERSION: "20"
+  POSTGRES_DB: testdb
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+
+# Templates for reusability
+.node_template: &node_template
+  image: node:${NODE_VERSION}
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - node_modules/
+      - .npm/
+  before_script:
+    - npm ci --cache .npm --prefer-offline
+
+.docker_template: &docker_template
+  image: docker:24
+  services:
+    - docker:24-dind
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+
+# Validation Stage
+lint:
+  <<: *node_template
+  stage: validate
+  script:
+    - npm run lint
+    - npm run format:check
+    - npm run type-check
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+audit:
+  <<: *node_template
+  stage: validate
+  script:
+    - npm audit --audit-level=high
+    - npm run license-check
+  allow_failure: false
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Test Stage
+unit-tests:
+  <<: *node_template
+  stage: test
+  services:
+    - postgres:15
+    - redis:7
+  variables:
+    DATABASE_URL: postgresql://postgres:postgres@postgres:5432/testdb
+    REDIS_URL: redis://redis:6379
+  script:
+    - npm run test:unit
+  coverage: '/Lines\s*:\s*(\d+\.\d+)%/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage/cobertura-coverage.xml
+      junit: junit.xml
+    paths:
+      - coverage/
+    expire_in: 1 week
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+integration-tests:
+  <<: *node_template
+  stage: test
+  services:
+    - postgres:15
+    - redis:7
+  variables:
+    DATABASE_URL: postgresql://postgres:postgres@postgres:5432/testdb
+    REDIS_URL: redis://redis:6379
+  script:
+    - npm run test:integration
+  artifacts:
+    reports:
+      junit: junit-integration.xml
+    expire_in: 1 week
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Security Stage
+sast:
+  stage: security
+  include:
+    - template: Security/SAST.gitlab-ci.yml
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+dependency-scanning:
+  stage: security
+  include:
+    - template: Security/Dependency-Scanning.gitlab-ci.yml
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+container-scanning:
+  stage: security
+  include:
+    - template: Security/Container-Scanning.gitlab-ci.yml
+  variables:
+    CS_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Build Stage
+build:
+  <<: *docker_template
+  stage: build
+  script:
+    - |
+      if [[ "$CI_COMMIT_BRANCH" == "$CI_DEFAULT_BRANCH" ]]; then
+        tag=""
+        echo "Building for main branch"
+      elif [[ "$CI_COMMIT_BRANCH" == "develop" ]]; then
+        tag=":develop"
+        echo "Building for develop branch"
+      else
+        tag=":$CI_COMMIT_REF_SLUG"
+        echo "Building for feature branch"
+      fi
+    - docker build 
+        --build-arg NODE_VERSION=$NODE_VERSION
+        --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+        --build-arg VCS_REF=$CI_COMMIT_SHA
+        -t $CI_REGISTRY_IMAGE$tag .
+    - docker push $CI_REGISTRY_IMAGE$tag
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+# Deployment Stages
+deploy-staging:
+  stage: deploy-staging
+  image: bitnami/kubectl:latest
+  environment:
+    name: staging
+    url: https://staging.example.com
+  script:
+    - kubectl config use-context $KUBE_CONTEXT_STAGING
+    - envsubst < k8s/deployment.yaml | kubectl apply -f -
+    - kubectl rollout status deployment/app -n staging --timeout=300s
+    - kubectl wait --for=condition=ready pod -l app=myapp -n staging --timeout=300s
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+
+deploy-production:
+  stage: deploy-production
+  image: bitnami/kubectl:latest
+  environment:
+    name: production
+    url: https://example.com
+  when: manual
+  script:
+    - kubectl config use-context $KUBE_CONTEXT_PRODUCTION
+    - |
+      # Blue-Green Deployment
+      envsubst < k8s/deployment-green.yaml | kubectl apply -f -
+      kubectl rollout status deployment/app-green -n production --timeout=600s
+      kubectl wait --for=condition=ready pod -l app=myapp,version=green -n production --timeout=300s
+      kubectl patch service app-service -n production -p '{"spec":{"selector":{"version":"green"}}}'
+      sleep 300
+      kubectl delete deployment app-blue -n production --ignore-not-found=true
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+```
+
+## Jenkins Pipeline Best Practices
+
+### Declarative Pipeline
+```groovy
+// ✅ Good - Jenkins declarative pipeline
+pipeline {
+    agent {
+        kubernetes {
+            yaml """
+                apiVersion: v1
+                kind: Pod
+                spec:
+                  containers:
+                  - name: node
+                    image: node:20
+                    command:
+                    - cat
+                    tty: true
+                  - name: docker
+                    image: docker:24
+                    command:
+                    - cat
+                    tty: true
+                    volumeMounts:
+                    - mountPath: /var/run/docker.sock
+                      name: docker-sock
+                  - name: kubectl
+                    image: bitnami/kubectl:latest
+                    command:
+                    - cat
+                    tty: true
+                  volumes:
+                  - name: docker-sock
+                    hostPath:
+                      path: /var/run/docker.sock
+            """
+        }
+    }
+    
+    environment {
+        NODE_VERSION = '20'
+        REGISTRY = 'ghcr.io'
+        IMAGE_NAME = "${env.JOB_NAME}"
+        KUBECONFIG = credentials('kubeconfig')
+        DOCKER_REGISTRY_CREDS = credentials('docker-registry')
+    }
+    
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timeout(time: 1, unit: 'HOURS')
+        timestamps()
+        ansiColor('xterm')
+    }
+    
+    triggers {
+        pollSCM('H/5 * * * *')
+        cron(env.BRANCH_NAME == 'main' ? 'H 2 * * *' : '')
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                script {
+                    env.GIT_COMMIT_SHORT = sh(
+                        script: 'git rev-parse --short HEAD',
+                        returnStdout: true
+                    ).trim()
+                }
+            }
+        }
+        
+        stage('Validate') {
+            parallel {
+                stage('Lint') {
+                    steps {
+                        container('node') {
+                            sh '''
+                                npm ci
+                                npm run lint
+                                npm run format:check
+                                npm run type-check
+                            '''
+                        }
+                    }
+                }
+                
+                stage('Security Audit') {
+                    steps {
+                        container('node') {
+                            sh '''
+                                npm ci
+                                npm audit --audit-level=high
+                                npm run license-check
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Test') {
+            parallel {
+                stage('Unit Tests') {
+                    steps {
+                        container('node') {
+                            sh '''
+                                npm ci
+                                npm run test:unit
+                            '''
+                        }
+                    }
+                    post {
+                        always {
+                            publishTestResults testResultsPattern: 'junit.xml'
+                            publishCoverage adapters: [
+                                coberturaAdapter('coverage/cobertura-coverage.xml')
+                            ], sourceFileResolver: sourceFiles('STORE_LAST_BUILD')
+                        }
+                    }
+                }
+                
+                stage('Integration Tests') {
+                    steps {
+                        container('node') {
+                            sh '''
+                                npm ci
+                                npm run test:integration
+                            '''
+                        }
+                    }
+                    post {
+                        always {
+                            publishTestResults testResultsPattern: 'junit-integration.xml'
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Security Scan') {
+            steps {
+                container('docker') {
+                    script {
+                        def trivyResult = sh(
+                            script: '''
+                                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+                                    -v $(pwd):/workspace \
+                                    aquasec/trivy:latest fs /workspace \
+                                    --format json --output trivy-results.json
+                            ''',
+                            returnStatus: true
+                        )
+                        
+                        if (trivyResult != 0) {
+                            currentBuild.result = 'UNSTABLE'
+                            echo 'Security vulnerabilities found'
+                        }
+                    }
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'trivy-results.json', allowEmptyArchive: true
+                }
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                container('docker') {
+                    script {
+                        def imageTag = env.BRANCH_NAME == 'main' ? 'latest' : env.BRANCH_NAME
+                        def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${imageTag}"
+                        
+                        sh """
+                            echo '${DOCKER_REGISTRY_CREDS_PSW}' | docker login ${env.REGISTRY} -u '${DOCKER_REGISTRY_CREDS_USR}' --password-stdin
+                            
+                            docker build \
+                                --build-arg NODE_VERSION=${env.NODE_VERSION} \
+                                --build-arg BUILD_DATE=\$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+                                --build-arg VCS_REF=${env.GIT_COMMIT} \
+                                -t ${fullImageName} .
+                            
+                            docker push ${fullImageName}
+                        """
+                        
+                        env.BUILT_IMAGE = fullImageName
+                    }
+                }
+            }
+        }
+        
+        stage('Deploy') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'develop'
+                }
+            }
+            steps {
+                container('kubectl') {
+                    script {
+                        def namespace = env.BRANCH_NAME == 'main' ? 'production' : 'staging'
+                        def deploymentName = "app-${namespace}"
+                        
+                        sh """
+                            envsubst < k8s/deployment.yaml | kubectl apply -f - -n ${namespace}
+                            kubectl rollout status deployment/${deploymentName} -n ${namespace} --timeout=300s
+                            kubectl wait --for=condition=ready pod -l app=myapp -n ${namespace} --timeout=300s
+                        """
+                    }
+                }
+            }
+        }
+        
+        stage('Post-Deploy Tests') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'develop'
+                }
+            }
+            steps {
+                container('node') {
+                    script {
+                        def baseUrl = env.BRANCH_NAME == 'main' ? 
+                            'https://example.com' : 'https://staging.example.com'
+                        
+                        sh """
+                            npm run test:smoke -- --baseUrl=${baseUrl}
+                        """
+                        
+                        if (env.BRANCH_NAME == 'main') {
+                            sh """
+                                npm run test:performance -- --baseUrl=${baseUrl}
+                            """
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            cleanWs()
+        }
+        
+        success {
+            script {
+                if (env.BRANCH_NAME == 'main') {
+                    slackSend(
+                        channel: '#deployments',
+                        color: 'good',
+                        message: "✅ Production deployment successful: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+                    )
+                }
+            }
+        }
+        
+        failure {
+            script {
+                slackSend(
+                    channel: '#alerts',
+                    color: 'danger',
+                    message: "❌ Pipeline failed: ${env.JOB_NAME} #${env.BUILD_NUMBER} - ${env.BUILD_URL}"
+                )
+            }
+        }
+        
+        unstable {
+            script {
+                slackSend(
+                    channel: '#alerts',
+                    color: 'warning',
+                    message: "⚠️ Pipeline unstable: ${env.JOB_NAME} #${env.BUILD_NUMBER} - ${env.BUILD_URL}"
+                )
+            }
+        }
+    }
+}
+```
+
+## Azure DevOps Pipeline
+
+### YAML Pipeline
+```yaml
+# ✅ Good - Azure DevOps pipeline
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+  paths:
+    exclude:
+      - README.md
+      - docs/*
+
+pr:
+  branches:
+    include:
+      - main
+      - develop
+
+variables:
+  - group: common-variables
+  - name: nodeVersion
+    value: '20'
+  - name: dockerRegistryServiceConnection
+    value: 'docker-registry-connection'
+  - name: imageRepository
+    value: 'myapp'
+  - name: containerRegistry
+    value: 'myregistry.azurecr.io'
+  - name: dockerfilePath
+    value: '$(Build.SourcesDirectory)/Dockerfile'
+  - name: tag
+    value: '$(Build.BuildId)'
+
+stages:
+  - stage: Validate
+    displayName: 'Code Validation'
+    jobs:
+      - job: Lint
+        displayName: 'Lint and Format Check'
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '$(nodeVersion)'
+            displayName: 'Install Node.js'
+          
+          - task: Cache@2
+            inputs:
+              key: 'npm | "$(Agent.OS)" | package-lock.json'
+              restoreKeys: |
+                npm | "$(Agent.OS)"
+              path: ~/.npm
+            displayName: 'Cache npm'
+          
+          - script: |
+              npm ci
+              npm run lint
+              npm run format:check
+              npm run type-check
+            displayName: 'Run linting and type checking'
+          
+          - script: |
+              npm audit --audit-level=high
+              npm run license-check
+            displayName: 'Security and license audit'
+
+  - stage: Test
+    displayName: 'Test Suite'
+    dependsOn: Validate
+    jobs:
+      - job: UnitTests
+        displayName: 'Unit Tests'
+        pool:
+          vmImage: 'ubuntu-latest'
+        services:
+          postgres: postgres:15
+          redis: redis:7
+        variables:
+          DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/testdb'
+          REDIS_URL: 'redis://localhost:6379'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '$(nodeVersion)'
+            displayName: 'Install Node.js'
+          
+          - script: |
+              npm ci
+              npm run test:unit
+            displayName: 'Run unit tests'
+          
+          - task: PublishTestResults@2
+            condition: succeededOrFailed()
+            inputs:
+              testRunner: JUnit
+              testResultsFiles: 'junit.xml'
+              testRunTitle: 'Unit Tests'
+          
+          - task: PublishCodeCoverageResults@1
+            inputs:
+              codeCoverageTool: Cobertura
+              summaryFileLocation: 'coverage/cobertura-coverage.xml'
+              reportDirectory: 'coverage'
+
+      - job: IntegrationTests
+        displayName: 'Integration Tests'
+        pool:
+          vmImage: 'ubuntu-latest'
+        services:
+          postgres: postgres:15
+          redis: redis:7
+        variables:
+          DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/testdb'
+          REDIS_URL: 'redis://localhost:6379'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '$(nodeVersion)'
+            displayName: 'Install Node.js'
+          
+          - script: |
+              npm ci
+              npm run test:integration
+            displayName: 'Run integration tests'
+          
+          - task: PublishTestResults@2
+            condition: succeededOrFailed()
+            inputs:
+              testRunner: JUnit
+              testResultsFiles: 'junit-integration.xml'
+              testRunTitle: 'Integration Tests'
+
+  - stage: Security
+    displayName: 'Security Scanning'
+    dependsOn: Validate
+    jobs:
+      - job: SecurityScan
+        displayName: 'Security Analysis'
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: CredScan@3
+            inputs:
+              toolMajorVersion: 'V2'
+          
+          - task: SdtReport@2
+            inputs:
+              GdnExportAllTools: false
+              GdnExportGdnToolCredScan: true
+          
+          - task: PublishSecurityAnalysisLogs@3
+            inputs:
+              ArtifactName: 'CodeAnalysisLogs'
+              ArtifactType: 'Container'
+
+  - stage: Build
+    displayName: 'Build and Push'
+    dependsOn: [Test, Security]
+    jobs:
+      - job: Build
+        displayName: 'Build Docker Image'
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: Docker@2
+            displayName: 'Build and push image'
+            inputs:
+              command: buildAndPush
+              repository: $(imageRepository)
+              dockerfile: $(dockerfilePath)
+              containerRegistry: $(dockerRegistryServiceConnection)
+              tags: |
+                $(tag)
+                latest
+              arguments: |
+                --build-arg NODE_VERSION=$(nodeVersion)
+                --build-arg BUILD_DATE=$(Build.SourceVersion)
+                --build-arg VCS_REF=$(Build.SourceVersion)
+
+  - stage: DeployStaging
+    displayName: 'Deploy to Staging'
+    dependsOn: Build
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
+    jobs:
+      - deployment: DeployStaging
+        displayName: 'Deploy to Staging Environment'
+        pool:
+          vmImage: 'ubuntu-latest'
+        environment: 'staging'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: KubernetesManifest@0
+                  inputs:
+                    action: 'deploy'
+                    kubernetesServiceConnection: 'staging-k8s-connection'
+                    namespace: 'staging'
+                    manifests: |
+                      k8s/deployment.yaml
+                      k8s/service.yaml
+                    containers: '$(containerRegistry)/$(imageRepository):$(tag)'
+                
+                - script: |
+                    kubectl wait --for=condition=ready pod -l app=myapp -n staging --timeout=300s
+                    npm run test:smoke -- --baseUrl=https://staging.example.com
+                  displayName: 'Post-deployment verification'
+
+  - stage: DeployProduction
+    displayName: 'Deploy to Production'
+    dependsOn: Build
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: DeployProduction
+        displayName: 'Deploy to Production Environment'
+        pool:
+          vmImage: 'ubuntu-latest'
+        environment: 'production'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: KubernetesManifest@0
+                  inputs:
+                    action: 'deploy'
+                    kubernetesServiceConnection: 'production-k8s-connection'
+                    namespace: 'production'
+                    manifests: |
+                      k8s/deployment.yaml
+                      k8s/service.yaml
+                    containers: '$(containerRegistry)/$(imageRepository):$(tag)'
+                
+                - script: |
+                    kubectl wait --for=condition=ready pod -l app=myapp -n production --timeout=300s
+                    npm run test:smoke -- --baseUrl=https://example.com
+                    npm run test:performance -- --baseUrl=https://example.com
+                  displayName: 'Post-deployment verification'
+```
+
+## Best Practices Summary
+
+### Pipeline Design
+- **Fail Fast**: Run quick validation checks first
+- **Parallel Execution**: Run independent jobs in parallel
+- **Caching**: Cache dependencies and build artifacts
+- **Timeouts**: Set appropriate timeouts for all jobs
+- **Retry Logic**: Implement retry mechanisms for flaky tests
+
+### Security Integration
+- **SAST**: Static Application Security Testing
+- **DAST**: Dynamic Application Security Testing
+- **Dependency Scanning**: Check for vulnerable dependencies
+- **Container Scanning**: Scan Docker images for vulnerabilities
+- **Secret Management**: Use secure secret management systems
+
+### Testing Strategy
+- **Unit Tests**: Fast, isolated tests
+- **Integration Tests**: Test component interactions
+- **End-to-End Tests**: Test complete user workflows
+- **Performance Tests**: Load and stress testing
+- **Smoke Tests**: Basic functionality verification
+
+### Deployment Patterns
+- **Blue-Green Deployment**: Zero-downtime deployments
+- **Canary Deployment**: Gradual rollout to subset of users
+- **Rolling Updates**: Sequential replacement of instances
+- **Feature Flags**: Control feature rollout independently
+
+### Monitoring and Observability
+- **Pipeline Metrics**: Track build times, success rates
+- **Deployment Tracking**: Monitor deployment frequency and lead time
+- **Alert Integration**: Notify teams of failures
+- **Audit Trails**: Maintain deployment history
+
+### Environment Management
+- **Environment Parity**: Keep environments consistent
+- **Infrastructure as Code**: Version control infrastructure
+- **Configuration Management**: Externalize configuration
+- **Secret Rotation**: Regular rotation of secrets and credentials
+

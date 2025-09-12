@@ -1,0 +1,903 @@
+
+---
+description: "Go development rules for microservices and clean architecture"
+globs: ["**/*.go", "**/go.mod", "**/go.sum"]
+alwaysApply: false
+---
+
+# Go Development Rules
+
+## Core Principles
+- **Simplicity**: Write clear, readable code that's easy to understand
+- **Concurrency**: Leverage goroutines and channels effectively
+- **Error Handling**: Handle errors explicitly and gracefully
+- **Interface Design**: Use small, focused interfaces
+- **Performance**: Write efficient code with proper resource management
+
+## Code Style and Organization
+
+### Package Structure
+```go
+// ✅ Good - Clear package organization
+project/
+├── cmd/                 # Application entry points
+│   └── server/
+│       └── main.go
+├── internal/           # Private application code
+│   ├── handler/        # HTTP handlers
+│   ├── service/        # Business logic
+│   ├── repository/     # Data access
+│   └── model/          # Data models
+├── pkg/               # Public library code
+│   └── client/        # Client libraries
+├── api/               # API definitions (OpenAPI, protobuf)
+├── web/               # Web assets
+├── configs/           # Configuration files
+├── deployments/       # Deployment configurations
+└── scripts/           # Build and deployment scripts
+```
+
+### Naming Conventions
+```go
+// ✅ Good - Go naming conventions
+type UserService struct {
+    repo UserRepository
+    log  *slog.Logger
+}
+
+func NewUserService(repo UserRepository, log *slog.Logger) *UserService {
+    return &UserService{
+        repo: repo,
+        log:  log,
+    }
+}
+
+func (s *UserService) CreateUser(ctx context.Context, req CreateUserRequest) (*User, error) {
+    if err := req.Validate(); err != nil {
+        return nil, fmt.Errorf("invalid request: %w", err)
+    }
+    
+    user := &User{
+        ID:        generateID(),
+        Email:     req.Email,
+        Name:      req.Name,
+        CreatedAt: time.Now(),
+    }
+    
+    if err := s.repo.Save(ctx, user); err != nil {
+        return nil, fmt.Errorf("failed to save user: %w", err)
+    }
+    
+    return user, nil
+}
+```
+
+## Error Handling
+
+### Error Patterns
+```go
+import (
+    "errors"
+    "fmt"
+)
+
+// ✅ Good - Custom error types
+type ValidationError struct {
+    Field   string
+    Message string
+}
+
+func (e ValidationError) Error() string {
+    return fmt.Sprintf("validation error in %s: %s", e.Field, e.Message)
+}
+
+type NotFoundError struct {
+    Resource string
+    ID       string
+}
+
+func (e NotFoundError) Error() string {
+    return fmt.Sprintf("%s with ID %s not found", e.Resource, e.ID)
+}
+
+// ✅ Good - Error wrapping and handling
+func (s *UserService) GetUser(ctx context.Context, id string) (*User, error) {
+    if id == "" {
+        return nil, ValidationError{Field: "id", Message: "cannot be empty"}
+    }
+    
+    user, err := s.repo.FindByID(ctx, id)
+    if err != nil {
+        if errors.Is(err, sql.ErrNoRows) {
+            return nil, NotFoundError{Resource: "user", ID: id}
+        }
+        return nil, fmt.Errorf("failed to find user: %w", err)
+    }
+    
+    return user, nil
+}
+
+// ✅ Good - Error checking patterns
+func processUsers(users []User) error {
+    var errs []error
+    
+    for _, user := range users {
+        if err := validateUser(user); err != nil {
+            errs = append(errs, fmt.Errorf("user %s: %w", user.ID, err))
+        }
+    }
+    
+    if len(errs) > 0 {
+        return errors.Join(errs...)
+    }
+    
+    return nil
+}
+```
+
+## Concurrency Patterns
+
+### Goroutines and Channels
+```go
+// ✅ Good - Worker pool pattern
+func (s *UserService) ProcessUsersInBatches(ctx context.Context, users []User, batchSize int) error {
+    jobs := make(chan User, len(users))
+    results := make(chan error, len(users))
+    
+    // Start workers
+    numWorkers := runtime.NumCPU()
+    for i := 0; i < numWorkers; i++ {
+        go func() {
+            for user := range jobs {
+                results <- s.processUser(ctx, user)
+            }
+        }()
+    }
+    
+    // Send jobs
+    go func() {
+        defer close(jobs)
+        for _, user := range users {
+            select {
+            case jobs <- user:
+            case <-ctx.Done():
+                return
+            }
+        }
+    }()
+    
+    // Collect results
+    var errs []error
+    for i := 0; i < len(users); i++ {
+        select {
+        case err := <-results:
+            if err != nil {
+                errs = append(errs, err)
+            }
+        case <-ctx.Done():
+            return ctx.Err()
+        }
+    }
+    
+    if len(errs) > 0 {
+        return errors.Join(errs...)
+    }
+    
+    return nil
+}
+
+// ✅ Good - Context cancellation
+func (s *UserService) FetchUserData(ctx context.Context, userID string) (*UserData, error) {
+    ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+    defer cancel()
+    
+    type result struct {
+        data *UserData
+        err  error
+    }
+    
+    ch := make(chan result, 1)
+    
+    go func() {
+        data, err := s.fetchFromAPI(ctx, userID)
+        ch <- result{data: data, err: err}
+    }()
+    
+    select {
+    case res := <-ch:
+        return res.data, res.err
+    case <-ctx.Done():
+        return nil, ctx.Err()
+    }
+}
+```
+
+### Sync Patterns
+```go
+import (
+    "sync"
+    "sync/atomic"
+)
+
+// ✅ Good - Safe concurrent access
+type Counter struct {
+    mu    sync.RWMutex
+    value int64
+}
+
+func (c *Counter) Increment() {
+    c.mu.Lock()
+    defer c.mu.Unlock()
+    c.value++
+}
+
+func (c *Counter) Value() int64 {
+    c.mu.RLock()
+    defer c.mu.RUnlock()
+    return c.value
+}
+
+// ✅ Good - Atomic operations for simple cases
+type AtomicCounter struct {
+    value int64
+}
+
+func (c *AtomicCounter) Increment() {
+    atomic.AddInt64(&c.value, 1)
+}
+
+func (c *AtomicCounter) Value() int64 {
+    return atomic.LoadInt64(&c.value)
+}
+
+// ✅ Good - sync.Once for initialization
+type Service struct {
+    once   sync.Once
+    client *http.Client
+}
+
+func (s *Service) getClient() *http.Client {
+    s.once.Do(func() {
+        s.client = &http.Client{
+            Timeout: 30 * time.Second,
+        }
+    })
+    return s.client
+}
+```
+
+## Interface Design
+
+### Small, Focused Interfaces
+```go
+// ✅ Good - Small, focused interfaces
+type UserRepository interface {
+    Save(ctx context.Context, user *User) error
+    FindByID(ctx context.Context, id string) (*User, error)
+    FindByEmail(ctx context.Context, email string) (*User, error)
+    Delete(ctx context.Context, id string) error
+}
+
+type UserValidator interface {
+    Validate(user *User) error
+}
+
+type UserNotifier interface {
+    NotifyUserCreated(ctx context.Context, user *User) error
+}
+
+// ✅ Good - Composition over inheritance
+type UserService struct {
+    repo      UserRepository
+    validator UserValidator
+    notifier  UserNotifier
+    log       *slog.Logger
+}
+
+func (s *UserService) CreateUser(ctx context.Context, req CreateUserRequest) (*User, error) {
+    user := &User{
+        ID:        generateID(),
+        Email:     req.Email,
+        Name:      req.Name,
+        CreatedAt: time.Now(),
+    }
+    
+    if err := s.validator.Validate(user); err != nil {
+        return nil, fmt.Errorf("validation failed: %w", err)
+    }
+    
+    if err := s.repo.Save(ctx, user); err != nil {
+        return nil, fmt.Errorf("failed to save user: %w", err)
+    }
+    
+    // Notify asynchronously
+    go func() {
+        if err := s.notifier.NotifyUserCreated(context.Background(), user); err != nil {
+            s.log.Error("failed to notify user creation", "error", err, "userID", user.ID)
+        }
+    }()
+    
+    return user, nil
+}
+```
+
+## HTTP Server Development
+
+### HTTP Handlers
+```go
+import (
+    "encoding/json"
+    "net/http"
+    "github.com/gorilla/mux"
+)
+
+// ✅ Good - HTTP handler structure
+type UserHandler struct {
+    service UserService
+    log     *slog.Logger
+}
+
+func NewUserHandler(service UserService, log *slog.Logger) *UserHandler {
+    return &UserHandler{
+        service: service,
+        log:     log,
+    }
+}
+
+func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
+    ctx := r.Context()
+    
+    var req CreateUserRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        h.writeError(w, http.StatusBadRequest, "invalid JSON", err)
+        return
+    }
+    
+    user, err := h.service.CreateUser(ctx, req)
+    if err != nil {
+        var validationErr ValidationError
+        if errors.As(err, &validationErr) {
+            h.writeError(w, http.StatusBadRequest, "validation failed", err)
+            return
+        }
+        
+        h.log.Error("failed to create user", "error", err)
+        h.writeError(w, http.StatusInternalServerError, "internal server error", nil)
+        return
+    }
+    
+    h.writeJSON(w, http.StatusCreated, user)
+}
+
+func (h *UserHandler) writeJSON(w http.ResponseWriter, status int, data interface{}) {
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(status)
+    
+    if err := json.NewEncoder(w).Encode(data); err != nil {
+        h.log.Error("failed to encode JSON response", "error", err)
+    }
+}
+
+func (h *UserHandler) writeError(w http.ResponseWriter, status int, message string, err error) {
+    response := map[string]string{"error": message}
+    
+    if err != nil {
+        h.log.Error("request error", "error", err, "status", status)
+    }
+    
+    h.writeJSON(w, status, response)
+}
+```
+
+### Middleware
+```go
+// ✅ Good - Middleware patterns
+func LoggingMiddleware(log *slog.Logger) func(http.Handler) http.Handler {
+    return func(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+            start := time.Now()
+            
+            // Wrap ResponseWriter to capture status code
+            wrapped := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+            
+            next.ServeHTTP(wrapped, r)
+            
+            log.Info("request completed",
+                "method", r.Method,
+                "path", r.URL.Path,
+                "status", wrapped.statusCode,
+                "duration", time.Since(start),
+                "remote_addr", r.RemoteAddr,
+            )
+        })
+    }
+}
+
+type responseWriter struct {
+    http.ResponseWriter
+    statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+    rw.statusCode = code
+    rw.ResponseWriter.WriteHeader(code)
+}
+
+// ✅ Good - Authentication middleware
+func AuthMiddleware(jwtSecret string) func(http.Handler) http.Handler {
+    return func(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+            token := r.Header.Get("Authorization")
+            if token == "" {
+                http.Error(w, "missing authorization header", http.StatusUnauthorized)
+                return
+            }
+            
+            // Remove "Bearer " prefix
+            if len(token) > 7 && token[:7] == "Bearer " {
+                token = token[7:]
+            }
+            
+            userID, err := validateJWT(token, jwtSecret)
+            if err != nil {
+                http.Error(w, "invalid token", http.StatusUnauthorized)
+                return
+            }
+            
+            // Add user ID to context
+            ctx := context.WithValue(r.Context(), "userID", userID)
+            next.ServeHTTP(w, r.WithContext(ctx))
+        })
+    }
+}
+```
+
+## Database Integration
+
+### SQL Database Patterns
+```go
+import (
+    "database/sql"
+    "github.com/jmoiron/sqlx"
+    _ "github.com/lib/pq"
+)
+
+// ✅ Good - Repository pattern
+type PostgresUserRepository struct {
+    db *sqlx.DB
+}
+
+func NewPostgresUserRepository(db *sqlx.DB) *PostgresUserRepository {
+    return &PostgresUserRepository{db: db}
+}
+
+func (r *PostgresUserRepository) Save(ctx context.Context, user *User) error {
+    query := `
+        INSERT INTO users (id, email, name, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (id) DO UPDATE SET
+            email = EXCLUDED.email,
+            name = EXCLUDED.name,
+            updated_at = EXCLUDED.updated_at
+    `
+    
+    _, err := r.db.ExecContext(ctx, query,
+        user.ID, user.Email, user.Name, user.CreatedAt, user.UpdatedAt)
+    if err != nil {
+        return fmt.Errorf("failed to save user: %w", err)
+    }
+    
+    return nil
+}
+
+func (r *PostgresUserRepository) FindByID(ctx context.Context, id string) (*User, error) {
+    var user User
+    query := `SELECT id, email, name, created_at, updated_at FROM users WHERE id = $1`
+    
+    err := r.db.GetContext(ctx, &user, query, id)
+    if err != nil {
+        if errors.Is(err, sql.ErrNoRows) {
+            return nil, NotFoundError{Resource: "user", ID: id}
+        }
+        return nil, fmt.Errorf("failed to find user: %w", err)
+    }
+    
+    return &user, nil
+}
+
+// ✅ Good - Transaction handling
+func (r *PostgresUserRepository) CreateUserWithProfile(ctx context.Context, user *User, profile *UserProfile) error {
+    tx, err := r.db.BeginTxx(ctx, nil)
+    if err != nil {
+        return fmt.Errorf("failed to begin transaction: %w", err)
+    }
+    defer tx.Rollback()
+    
+    // Insert user
+    userQuery := `INSERT INTO users (id, email, name, created_at) VALUES ($1, $2, $3, $4)`
+    if _, err := tx.ExecContext(ctx, userQuery, user.ID, user.Email, user.Name, user.CreatedAt); err != nil {
+        return fmt.Errorf("failed to insert user: %w", err)
+    }
+    
+    // Insert profile
+    profileQuery := `INSERT INTO user_profiles (user_id, bio, avatar_url) VALUES ($1, $2, $3)`
+    if _, err := tx.ExecContext(ctx, profileQuery, profile.UserID, profile.Bio, profile.AvatarURL); err != nil {
+        return fmt.Errorf("failed to insert profile: %w", err)
+    }
+    
+    if err := tx.Commit(); err != nil {
+        return fmt.Errorf("failed to commit transaction: %w", err)
+    }
+    
+    return nil
+}
+```
+
+## Testing
+
+### Unit Testing
+```go
+import (
+    "testing"
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/mock"
+)
+
+// ✅ Good - Table-driven tests
+func TestUserService_CreateUser(t *testing.T) {
+    tests := []struct {
+        name        string
+        request     CreateUserRequest
+        setupMocks  func(*MockUserRepository, *MockUserValidator)
+        expectedErr string
+    }{
+        {
+            name: "successful creation",
+            request: CreateUserRequest{
+                Email: "test@example.com",
+                Name:  "Test User",
+            },
+            setupMocks: func(repo *MockUserRepository, validator *MockUserValidator) {
+                validator.On("Validate", mock.AnythingOfType("*User")).Return(nil)
+                repo.On("Save", mock.Anything, mock.AnythingOfType("*User")).Return(nil)
+            },
+            expectedErr: "",
+        },
+        {
+            name: "validation error",
+            request: CreateUserRequest{
+                Email: "invalid-email",
+                Name:  "",
+            },
+            setupMocks: func(repo *MockUserRepository, validator *MockUserValidator) {
+                validator.On("Validate", mock.AnythingOfType("*User")).
+                    Return(ValidationError{Field: "email", Message: "invalid format"})
+            },
+            expectedErr: "validation failed",
+        },
+    }
+    
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            // Setup
+            mockRepo := &MockUserRepository{}
+            mockValidator := &MockUserValidator{}
+            mockNotifier := &MockUserNotifier{}
+            
+            tt.setupMocks(mockRepo, mockValidator)
+            
+            service := &UserService{
+                repo:      mockRepo,
+                validator: mockValidator,
+                notifier:  mockNotifier,
+                log:       slog.Default(),
+            }
+            
+            // Execute
+            user, err := service.CreateUser(context.Background(), tt.request)
+            
+            // Assert
+            if tt.expectedErr != "" {
+                assert.Error(t, err)
+                assert.Contains(t, err.Error(), tt.expectedErr)
+                assert.Nil(t, user)
+            } else {
+                assert.NoError(t, err)
+                assert.NotNil(t, user)
+                assert.Equal(t, tt.request.Email, user.Email)
+                assert.Equal(t, tt.request.Name, user.Name)
+            }
+            
+            // Verify mocks
+            mockRepo.AssertExpectations(t)
+            mockValidator.AssertExpectations(t)
+        })
+    }
+}
+```
+
+### Integration Testing
+```go
+// ✅ Good - Integration test setup
+func TestUserRepository_Integration(t *testing.T) {
+    if testing.Short() {
+        t.Skip("skipping integration test")
+    }
+    
+    // Setup test database
+    db := setupTestDB(t)
+    defer cleanupTestDB(t, db)
+    
+    repo := NewPostgresUserRepository(db)
+    
+    t.Run("save and find user", func(t *testing.T) {
+        user := &User{
+            ID:        "test-id",
+            Email:     "test@example.com",
+            Name:      "Test User",
+            CreatedAt: time.Now(),
+        }
+        
+        // Save user
+        err := repo.Save(context.Background(), user)
+        assert.NoError(t, err)
+        
+        // Find user
+        found, err := repo.FindByID(context.Background(), user.ID)
+        assert.NoError(t, err)
+        assert.Equal(t, user.Email, found.Email)
+        assert.Equal(t, user.Name, found.Name)
+    })
+}
+
+func setupTestDB(t *testing.T) *sqlx.DB {
+    dbURL := os.Getenv("TEST_DATABASE_URL")
+    if dbURL == "" {
+        t.Skip("TEST_DATABASE_URL not set")
+    }
+    
+    db, err := sqlx.Connect("postgres", dbURL)
+    if err != nil {
+        t.Fatalf("failed to connect to test database: %v", err)
+    }
+    
+    // Run migrations
+    if err := runMigrations(db); err != nil {
+        t.Fatalf("failed to run migrations: %v", err)
+    }
+    
+    return db
+}
+```
+
+## Configuration and Environment
+
+### Configuration Management
+```go
+import (
+    "os"
+    "strconv"
+    "time"
+)
+
+// ✅ Good - Configuration struct
+type Config struct {
+    Server   ServerConfig
+    Database DatabaseConfig
+    JWT      JWTConfig
+    Log      LogConfig
+}
+
+type ServerConfig struct {
+    Port         int
+    ReadTimeout  time.Duration
+    WriteTimeout time.Duration
+}
+
+type DatabaseConfig struct {
+    URL             string
+    MaxOpenConns    int
+    MaxIdleConns    int
+    ConnMaxLifetime time.Duration
+}
+
+type JWTConfig struct {
+    Secret     string
+    Expiration time.Duration
+}
+
+type LogConfig struct {
+    Level  string
+    Format string
+}
+
+// ✅ Good - Environment-based configuration
+func LoadConfig() (*Config, error) {
+    config := &Config{
+        Server: ServerConfig{
+            Port:         getEnvInt("PORT", 8080),
+            ReadTimeout:  getEnvDuration("READ_TIMEOUT", 30*time.Second),
+            WriteTimeout: getEnvDuration("WRITE_TIMEOUT", 30*time.Second),
+        },
+        Database: DatabaseConfig{
+            URL:             getEnvString("DATABASE_URL", ""),
+            MaxOpenConns:    getEnvInt("DB_MAX_OPEN_CONNS", 25),
+            MaxIdleConns:    getEnvInt("DB_MAX_IDLE_CONNS", 5),
+            ConnMaxLifetime: getEnvDuration("DB_CONN_MAX_LIFETIME", 5*time.Minute),
+        },
+        JWT: JWTConfig{
+            Secret:     getEnvString("JWT_SECRET", ""),
+            Expiration: getEnvDuration("JWT_EXPIRATION", 24*time.Hour),
+        },
+        Log: LogConfig{
+            Level:  getEnvString("LOG_LEVEL", "info"),
+            Format: getEnvString("LOG_FORMAT", "json"),
+        },
+    }
+    
+    if err := config.Validate(); err != nil {
+        return nil, fmt.Errorf("invalid configuration: %w", err)
+    }
+    
+    return config, nil
+}
+
+func (c *Config) Validate() error {
+    if c.Database.URL == "" {
+        return errors.New("DATABASE_URL is required")
+    }
+    if c.JWT.Secret == "" {
+        return errors.New("JWT_SECRET is required")
+    }
+    return nil
+}
+
+func getEnvString(key, defaultValue string) string {
+    if value := os.Getenv(key); value != "" {
+        return value
+    }
+    return defaultValue
+}
+
+func getEnvInt(key string, defaultValue int) int {
+    if value := os.Getenv(key); value != "" {
+        if intValue, err := strconv.Atoi(value); err == nil {
+            return intValue
+        }
+    }
+    return defaultValue
+}
+
+func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
+    if value := os.Getenv(key); value != "" {
+        if duration, err := time.ParseDuration(value); err == nil {
+            return duration
+        }
+    }
+    return defaultValue
+}
+```
+
+## Performance and Optimization
+
+### Memory Management
+```go
+// ✅ Good - Object pooling
+var userPool = sync.Pool{
+    New: func() interface{} {
+        return &User{}
+    },
+}
+
+func (s *UserService) ProcessUsers(users []User) error {
+    for _, userData := range users {
+        user := userPool.Get().(*User)
+        *user = userData // Copy data
+        
+        if err := s.processUser(user); err != nil {
+            userPool.Put(user)
+            return err
+        }
+        
+        // Reset and return to pool
+        *user = User{}
+        userPool.Put(user)
+    }
+    return nil
+}
+
+// ✅ Good - Efficient string building
+func buildQuery(conditions []string) string {
+    if len(conditions) == 0 {
+        return "SELECT * FROM users"
+    }
+    
+    var builder strings.Builder
+    builder.WriteString("SELECT * FROM users WHERE ")
+    
+    for i, condition := range conditions {
+        if i > 0 {
+            builder.WriteString(" AND ")
+        }
+        builder.WriteString(condition)
+    }
+    
+    return builder.String()
+}
+```
+
+## Security Best Practices
+
+### Input Validation and Sanitization
+```go
+import (
+    "regexp"
+    "strings"
+    "unicode/utf8"
+)
+
+// ✅ Good - Input validation
+func ValidateEmail(email string) error {
+    if email == "" {
+        return ValidationError{Field: "email", Message: "cannot be empty"}
+    }
+    
+    if len(email) > 254 {
+        return ValidationError{Field: "email", Message: "too long"}
+    }
+    
+    emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+    if !emailRegex.MatchString(email) {
+        return ValidationError{Field: "email", Message: "invalid format"}
+    }
+    
+    return nil
+}
+
+func SanitizeString(input string, maxLength int) string {
+    // Remove null bytes and control characters
+    cleaned := strings.Map(func(r rune) rune {
+        if r == 0 || (r < 32 && r != '\t' && r != '\n' && r != '\r') {
+            return -1
+        }
+        return r
+    }, input)
+    
+    // Trim whitespace
+    cleaned = strings.TrimSpace(cleaned)
+    
+    // Limit length
+    if utf8.RuneCountInString(cleaned) > maxLength {
+        runes := []rune(cleaned)
+        cleaned = string(runes[:maxLength])
+    }
+    
+    return cleaned
+}
+
+// ✅ Good - SQL injection prevention with parameterized queries
+func (r *PostgresUserRepository) FindByEmailAndStatus(ctx context.Context, email string, status string) ([]*User, error) {
+    query := `
+        SELECT id, email, name, status, created_at, updated_at 
+        FROM users 
+        WHERE email = $1 AND status = $2
+        ORDER BY created_at DESC
+    `
+    
+    var users []*User
+    err := r.db.SelectContext(ctx, &users, query, email, status)
+    if err != nil {
+        return nil, fmt.Errorf("failed to find users: %w", err)
+    }
+    
+    return users, nil
+}
+```
+
+## Documentation
+- Use clear, descriptive function and variable names
+- Write comprehensive package documentation
+- Include usage examples in package comments
+- Document exported functions with proper Go doc comments
+- Maintain README with setup and usage instructions
+- Use meaningful commit messages following conventional commits
