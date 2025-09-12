@@ -7,6 +7,81 @@ All notable changes to the Cursor MDC Rules repository will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-09-12
+
+### Added - Supabase Official Integration
+
+#### New Rule Files
+- **`75-supabase-official.mdc`** - Official Supabase development standards based on official documentation:
+  - Official function templates with mandatory security configurations
+  - SECURITY INVOKER and search_path = '' requirements
+  - Performance classification (IMMUTABLE/STABLE/VOLATILE) with examples
+  - Row Level Security (RLS) policy patterns
+  - Edge Functions development templates
+  - Realtime subscription patterns
+  - Migration and rollback templates
+  - Comprehensive error handling patterns
+  - Official naming conventions and project structure
+
+#### Enhanced Files
+- **`70-database-standards.mdc`** - Integrated official Supabase practices:
+  - Added mandatory function template with security configurations
+  - Integrated performance classification guidelines
+  - Enhanced trigger function patterns
+  - Added official Supabase rules structure reference
+  - Included links to official rule installation command
+
+#### Updated Documentation
+- **`README.md`** - Updated to reflect Supabase integration:
+  - Added reference to new rule 75-supabase-official.mdc
+  - Updated rule count to 75 (16 total rules)
+  - Enhanced database standards description with Supabase integration
+
+### Enhanced Features
+
+#### Official Supabase Compliance
+- **Security-First Approach**: Mandatory SECURITY INVOKER and empty search_path
+- **Performance Optimization**: Proper function classification for PostgreSQL optimization
+- **Official Templates**: Based on Supabase's official AI editor rules documentation
+- **Best Practices Integration**: Seamless integration with existing database standards
+
+#### Comprehensive Coverage
+- **Database Functions**: Complete templates for all function types
+- **Security Policies**: RLS patterns for user-based and role-based access
+- **Edge Functions**: TypeScript templates with proper CORS and authentication
+- **Realtime Features**: Client-side subscription and presence patterns
+- **Migration Patterns**: Safe migration and rollback templates
+
+#### Developer Experience
+- **Copy-Paste Ready**: All templates are production-ready
+- **Error Handling**: Comprehensive error handling patterns
+- **Type Safety**: Explicit typing requirements and examples
+- **Documentation**: Inline comments and usage examples
+
+### Integration Benefits
+
+#### Enhanced Security
+- **Mandatory Security Settings**: Prevents common security vulnerabilities
+- **Fully Qualified Names**: Eliminates schema injection risks
+- **Explicit Permissions**: Clear permission model with SECURITY INVOKER default
+
+#### Improved Performance
+- **Function Classification**: Proper IMMUTABLE/STABLE/VOLATILE usage
+- **Query Optimization**: Templates optimized for PostgreSQL query planner
+- **Connection Efficiency**: Built-in connection pooling best practices
+
+#### Official Compliance
+- **Supabase Standards**: Aligned with official Supabase documentation
+- **AI Editor Rules**: Compatible with official Supabase AI editor rules
+- **Future-Proof**: Based on official templates and patterns
+
+### Source Attribution
+Based on official Supabase documentation and AI editor rules available at:
+- https://supabase.com/ui/docs/ai-editors-rules/prompts
+- https://supabase.com/ui/r/ai-editor-rules.json
+
+---
+
 ## [1.1.0] - 2025-09-12
 
 ### Added - Cursor Best Practices Integration
