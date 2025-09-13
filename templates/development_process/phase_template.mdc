@@ -1,0 +1,63 @@
+---
+description: "Template para definição de fases de desenvolvimento, incluindo objetivos, escopo, dependências, entregáveis e portões de qualidade, otimizado para o Cursor."
+globs: ["templates/development_process/phase_*.mdc"]
+alwaysApply: false
+---
+
+# Template de Fase de Desenvolvimento: [Nome da Fase]
+
+## Visão Geral
+
+Esta fase foca em [breve descrição do objetivo principal da fase].
+
+## Objetivos
+
+*   [Objetivo 1]
+*   [Objetivo 2]
+*   [...]
+
+## Escopo
+
+*   **Funcionalidades:** [Lista de funcionalidades a serem desenvolvidas/aprimoradas]
+*   **Componentes Envolvidos:** [Lista de componentes de código ou infraestrutura afetados]
+*   **Tecnologias:** [Tecnologias primárias utilizadas nesta fase]
+
+## Dependências
+
+*   [Dependência 1 (e.g., Fase 0 concluída, API X disponível)]
+*   [Dependência 2]
+*   [...]
+
+## Entregáveis
+
+*   [Entregável 1 (e.g., Código-fonte implementado e testado)]
+*   [Entregável 2 (e.g., Documentação atualizada)]
+*   [Entregável 3 (e.g., Testes automatizados)]
+*   [...]
+
+## Portões de Qualidade
+
+Para que esta fase seja considerada concluída, todos os seguintes portões de qualidade devem ser aprovados:
+
+*   **Conformidade de Código:** O código desenvolvido deve aderir às `Project Rules` definidas para a linguagem/tecnologia (e.g., `languages/python.mdc`, `languages/typescript.mdc`).
+*   **Testes Passando:** Todos os testes unitários, de integração e end-to-end relevantes devem passar com 100% de sucesso.
+*   **Cobertura de Testes:** A cobertura de testes para o novo código/funcionalidade deve ser de no mínimo [X]%.
+*   **Revisão de Código:** O código deve passar por uma revisão de código por [Número] pares, com todos os comentários críticos resolvidos.
+*   **Documentação:** A documentação técnica (e.g., READMEs, ADRs, Swagger) deve ser atualizada e aprovada.
+*   **Performance:** A funcionalidade deve atender aos requisitos de desempenho definidos (e.g., latência, throughput).
+*   **Segurança:** Scans de segurança (SAST/DAST) devem passar sem vulnerabilidades críticas ou de alto risco no código/componentes afetados.
+
+## Implementation Notes
+
+[Use esta seção para registrar decisões de design, aprendizados, problemas encontrados e soluções durante a execução desta fase. Referencie ADRs relevantes e discussões.]
+
+## MDC Compliance Checklist
+
+- [ ] **Objetivos Claros:** Objetivos da fase definidos.
+- [ ] **Escopo Definido:** Funcionalidades e componentes listados.
+- [ ] **Dependências Atendidas:** Pré-requisitos verificados.
+- [ ] **Entregáveis Completos:** Todos os entregáveis produzidos.
+- [ ] **Portões de Qualidade Aprovados:** Todos os critérios de qualidade atendidos.
+- [ ] **Notas de Implementação Registradas:** Decisões e aprendizados documentados.
+
+
