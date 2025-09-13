@@ -45,13 +45,14 @@ franklinferre/rules/
 │   ├── java.mdc                   # Java + Spring Boot
 │   └── php.mdc                    # PHP + Laravel/Symfony
 │
-├── ⚙️ devops/                      # Regras DevOps (6 áreas)
+├── ⚙️ devops/                      # Regras DevOps (7 áreas)
 │   ├── containers.mdc             # Docker + Kubernetes
 │   ├── cicd.mdc                   # CI/CD pipelines
 │   ├── cloud.mdc                  # AWS/GCP/Azure
 │   ├── monitoring.mdc             # Observabilidade
 │   ├── security.mdc               # Segurança DevSecOps
 │   ├── ai_interaction_ux.mdc      # UX para Interação com IA
+│   ├── linear_integration.mdc     # Integração com Linear
 │   └── github_actions_mdc_validation.mdc # Template GitHub Actions para validação MDC
 │
 ├── 📝 templates/                   # Templates para novas regras
@@ -145,13 +146,14 @@ cp cursor-rules/.cursorindexignore your-project/
 - **`java.mdc`** - Java 21+ Spring Boot 3.x
 - **`php.mdc`** - PHP 8.3+ Laravel/Symfony
 
-### ⚙️ DevOps (6 áreas)
+### ⚙️ DevOps (7 áreas)
 - **`containers.mdc`** - Docker multi-stage + Kubernetes
 - **`cicd.mdc`** - CI/CD pipelines
 - **`cloud.mdc`** - AWS/GCP/Azure best practices
 - **`monitoring.mdc`** - Prometheus + Grafana + OpenTelemetry
 - **`security.mdc`** - DevSecOps + SAST/DAST
 - **`ai_interaction_ux.mdc`** - UX para Interação com IA
+- **`linear_integration.mdc`** - Integração com Linear
 
 ### 🎯 Examples (2 padrões)
 - **`fullstack.mdc`** - Arquiteturas full-stack modernas
@@ -262,7 +264,7 @@ Synthesis       → Combinação inteligente de insights
 ### Protocolos Obrigatórios
 - **ASSUMPTION_REQUEST** → Para ambiguidades
 - **RISK_ALERT** → Para operações sensíveis  
-- **SCOPE_CHANGE** → Para mudanças de escopo
+- **SCOPE_CHANGE** → Mudanças de escopo → impacto + alternativas
 
 ## 📚 Documentação Completa
 
@@ -291,6 +293,9 @@ Synthesis       → Combinação inteligente de insights
 cp languages/typescript.mdc .cursor/rules/
 cp examples/fullstack.mdc .cursor/rules/
 cp examples/supabase-integration.mdc .cursor/rules/
+
+# Para projeto Python/FastAPI  
+cp languages/python.mdc .cursor/rules/
 cp devops/containers.mdc .cursor/rules/
 ```
 

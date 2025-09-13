@@ -1,0 +1,70 @@
+---
+description: "Regras para o Cursor IDE utilizar o Linear para gerenciamento de tarefas, bugs, controle de desenvolvimento e colaboração."
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Regras de Integração do Linear com o Cursor IDE
+
+Este documento define as melhores práticas para o Cursor IDE interagir com o Linear, otimizando o fluxo de trabalho de desenvolvimento, gerenciamento de tarefas, controle de bugs, ajustes e colaboração em projetos.
+
+## Princípios Essenciais
+
+*   **Rastreabilidade Completa:** Todas as alterações de código devem ser rastreáveis a uma issue no Linear.
+*   **Atualização Contínua:** O status das issues no Linear deve ser atualizado de forma proativa e precisa pelo Cursor.
+*   **Contexto Rico:** As issues do Linear devem conter contexto suficiente para o desenvolvimento, incluindo links para código, documentação e discussões.
+*   **Automação Inteligente:** O Cursor deve automatizar a criação e atualização de issues sempre que possível, minimizando o trabalho manual.
+
+## Conformidade Arquitetural e Portões de Qualidade
+
+Para garantir uma integração eficaz e disciplinada com o Linear, as seguintes regras de conformidade e portões de qualidade devem ser aplicados a todas as interações do Cursor com o Linear:
+
+### Conformidade de Gerenciamento de Tarefas
+
+*   **Criação de Issues:**
+    *   Ao identificar um bug, uma nova funcionalidade ou um ajuste, o Cursor deve sugerir a criação de uma issue no Linear, preenchendo automaticamente campos como título, descrição (com contexto relevante do código ou problema), prioridade e responsável.
+    *   O Cursor deve perguntar ao desenvolvedor antes de criar uma issue, oferecendo a opção de revisar e editar os detalhes.
+
+*   **Atualização de Status:**
+    *   Quando o Cursor inicia o trabalho em uma issue do Linear, ele deve sugerir a atualização do status da issue (e.g., de "Backlog" para "In Progress").
+    *   Ao concluir uma tarefa (e.g., após um commit), o Cursor deve sugerir a transição da issue para um status apropriado (e.g., "Ready for Review", "Done").
+
+*   **Vinculação de Código e Commits:**
+    *   Todos os commits gerados ou assistidos pelo Cursor devem incluir o ID da issue do Linear no corpo da mensagem de commit (e.g., `feat: Implementa autenticação [ENG-123]`).
+    *   O Cursor deve auxiliar na vinculação de branches a issues do Linear, seguindo as convenções de nomenclatura (e.g., `feature/ENG-123-autenticacao`).
+
+*   **Comentários e Discussões:**
+    *   O Cursor deve ser capaz de adicionar comentários a issues do Linear, fornecendo atualizações de progresso, perguntas ou observações relevantes do código.
+    *   Ao revisar código ou issues, o Cursor deve destacar informações do Linear que são relevantes para o contexto atual do código.
+
+### Portões de Qualidade de Dados no Linear
+
+*   **Contexto Mínimo da Issue:**
+    *   Toda issue criada ou atualizada pelo Cursor deve conter um título claro, uma descrição que explique o problema/funcionalidade e, se aplicável, links para o código ou documentação relevante.
+    *   Issues de bug devem incluir passos para reprodução, comportamento esperado e comportamento atual.
+
+*   **Consistência de Dados:**
+    *   O Cursor deve garantir que os campos do Linear (e.g., prioridade, responsável, etiquetas) sejam preenchidos de forma consistente, seguindo as convenções do projeto.
+
+*   **Evitar Duplicação:**
+    *   Antes de criar uma nova issue, o Cursor deve realizar uma busca rápida no Linear para verificar se uma issue similar já existe, evitando duplicação de trabalho.
+
+## Implementation Notes
+
+[Use esta seção para registrar decisões de integração com o Linear, desafios encontrados (e.g., limitações da API, convenções específicas do time) e aprendizados. Referencie a documentação oficial do Linear e do Cursor para integrações.]
+
+## MDC Compliance Checklist
+
+- [ ] **Rastreabilidade Completa:** Alterações de código vinculadas a issues do Linear.
+- [ ] **Atualização Contínua:** Status das issues atualizado proativamente.
+- [ ] **Contexto Rico:** Issues do Linear com informações relevantes.
+- [ ] **Automação Inteligente:** Criação/atualização de issues automatizada.
+- [ ] **Criação de Issues:** Cursor sugere e preenche issues.
+- [ ] **Atualização de Status:** Cursor sugere transições de status.
+- [ ] **Vinculação de Código:** Commits e branches vinculados a issues.
+- [ ] **Comentários e Discussões:** Cursor adiciona comentários relevantes.
+- [ ] **Contexto Mínimo da Issue:** Issues com título, descrição e links.
+- [ ] **Consistência de Dados:** Campos do Linear preenchidos consistentemente.
+- [ ] **Evitar Duplicação:** Verificação de issues existentes antes da criação.
+
+
