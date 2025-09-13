@@ -1,0 +1,101 @@
+---
+description: "Regras do Model Context Protocol (MCP) para o Cursor IDE interagir com a API GraphQL do Linear, permitindo gerenciamento avançado de tarefas e contexto."
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Regras MCP para Integração com Linear no Cursor IDE
+
+Este documento detalha as regras do Model Context Protocol (MCP) para o Cursor IDE interagir de forma eficiente e estruturada com a API GraphQL do Linear. O objetivo é permitir que o Cursor acesse, crie e atualize informações do Linear (issues, projetos, equipes) diretamente, fornecendo um contexto rico para o desenvolvimento assistido por IA.
+
+## Princípios Essenciais do MCP com Linear
+
+*   **Acesso Contextualizado:** O Cursor deve ser capaz de recuperar informações do Linear relevantes para o contexto atual do código ou da tarefa.
+*   **Manipulação de Dados Estruturada:** A interação com a API GraphQL do Linear deve seguir um esquema bem definido para garantir a integridade dos dados.
+*   **Autenticação Segura:** A comunicação com a API do Linear deve ser sempre autenticada de forma segura (e.g., via Personal Access Token).
+*   **Feedback de Operação:** O Cursor deve fornecer feedback claro sobre o sucesso ou falha das operações realizadas no Linear.
+
+## Conformidade Arquitetural e Portões de Qualidade
+
+As seguintes regras de conformidade e portões de qualidade devem ser aplicados ao configurar e utilizar o MCP para o Linear no Cursor:
+
+### Configuração do MCP para Linear
+
+*   **Endpoint da API GraphQL:**
+    *   O Cursor deve ser configurado para usar o endpoint oficial da API GraphQL do Linear (`https://api.linear.app/graphql`).
+
+*   **Autenticação:**
+    *   Utilize um Personal Access Token (PAT) do Linear para autenticação. O PAT deve ser armazenado de forma segura (e.g., variáveis de ambiente do Cursor ou gerenciador de segredos).
+    *   O PAT deve ter as permissões mínimas necessárias para as operações desejadas (leitura e escrita de issues, projetos, etc.).
+
+*   **Definição de Esquema (Schema Definition):**
+    *   O Cursor deve ter acesso ao esquema GraphQL do Linear para validar queries e mutações, garantindo que as operações estejam corretas.
+    *   Considere usar ferramentas de introspecção GraphQL para obter o esquema dinamicamente ou manter uma cópia local atualizada.
+
+### Interações com a API GraphQL do Linear
+
+*   **Queries para Contexto:**
+    *   Ao buscar contexto (e.g., detalhes de uma issue, lista de issues de um projeto), o Cursor deve construir queries GraphQL otimizadas para recuperar apenas os dados necessários.
+    *   Exemplos de queries:
+        ```graphql
+        query GetIssueDetails($id: String!) {
+          issue(id: $id) {
+            id
+            title
+            description
+            state {
+              name
+            }
+            project {
+              name
+            }
+            assignee {
+              name
+            }
+            url
+          }
+        }
+        ```
+
+*   **Mutações para Gerenciamento:**
+    *   Ao criar, atualizar ou transicionar issues, o Cursor deve utilizar mutações GraphQL, garantindo que os dados sejam enviados de forma estruturada e validada.
+    *   Exemplos de mutações:
+        ```graphql
+        mutation CreateIssue($title: String!, $description: String, $projectId: String!) {
+          issueCreate(
+            input: {title: $title, description: $description, projectId: $projectId}
+          ) {
+            issue {
+              id
+              url
+            }
+          }
+        }
+        ```
+
+*   **Tratamento de Erros:**
+    *   O Cursor deve ser capaz de interpretar e apresentar erros da API GraphQL do Linear de forma clara ao desenvolvedor, sugerindo possíveis soluções.
+
+*   **Cache e Otimização:**
+    *   Considere implementar estratégias de cache para dados do Linear frequentemente acessados, reduzindo a latência e o número de chamadas à API.
+
+## Aprimoramento do `linear_integration.mdc`
+
+O arquivo `linear_integration.mdc` será aprimorado para referenciar estas regras MCP e detalhar como as ações de gerenciamento de tarefas (criação, atualização, vinculação) são executadas através da API GraphQL do Linear.
+
+## Implementation Notes
+
+[Use esta seção para registrar detalhes sobre a configuração do MCP para o Linear, desafios específicos da API GraphQL, estratégias de otimização e quaisquer adaptações necessárias para o ambiente do Cursor.]
+
+## MDC Compliance Checklist
+
+- [ ] **Endpoint da API Configurado:** Cursor utiliza o endpoint GraphQL correto do Linear.
+- [ ] **Autenticação Segura:** PAT do Linear configurado e armazenado de forma segura.
+- [ ] **Esquema GraphQL Acessível:** Cursor tem acesso ao esquema do Linear para validação.
+- [ ] **Queries Otimizadas:** Queries GraphQL buscam apenas dados necessários.
+- [ ] **Mutações Estruturadas:** Mutações GraphQL utilizadas para manipulação de dados.
+- [ ] **Tratamento de Erros:** Erros da API Linear são interpretados e apresentados claramente.
+- [ ] **Cache Implementado (Opcional):** Estratégias de cache para dados do Linear.
+- [ ] **`linear_integration.mdc` Atualizado:** Referência a estas regras MCP e detalhes da API.
+
+
