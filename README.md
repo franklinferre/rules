@@ -28,6 +28,8 @@ franklinferre/rules/
 │   ├── DEVELOPMENT_PROCESS_GUIDE.md # Guia de Processo de Desenvolvimento em Fases
 │   ├── UX_BEST_PRACTICES_GUIDE.md   # Guia de Melhores Práticas de UX
 │   ├── MODEL_EVALUATION.md          # Avaliação e Recomendações de Modelos de IA
+│   ├── ADR/                         # Architectural Decision Records
+│   │   └── adr_template.md          # Template para ADRs
 │   ├── cursor-best-practices-integration.md
 │   ├── migration-guide.md
 │   ├── project-rules-guide.md
@@ -48,7 +50,8 @@ franklinferre/rules/
 │   ├── cicd.mdc                   # CI/CD pipelines
 │   ├── cloud.mdc                  # AWS/GCP/Azure
 │   ├── monitoring.mdc             # Observabilidade
-│   └── security.mdc               # Segurança DevSecOps
+│   ├── security.mdc               # Segurança DevSecOps
+│   └── github_actions_mdc_validation.mdc # Template GitHub Actions para validação MDC
 │
 ├── 📝 templates/                   # Templates para novas regras
 │   ├── development_process/       # Templates para o processo de desenvolvimento
@@ -68,11 +71,8 @@ franklinferre/rules/
 ├── 📦 modules/                     # Módulos especializados
 │   └── rag_integration.pdf        # Integração RAG N8N
 │
-├── 📜 scripts/                     # Scripts de automação e validação
-│   └── validate_rules.py          # Script para validação de regras MDC
-│
-└── 🛠️ devops/                      # Configurações e templates DevOps
-    └── github_actions_mdc_validation.mdc # Template GitHub Actions para validação MDC
+└── 📜 scripts/                     # Scripts de automação e validação
+    └── validate_rules.py          # Script para validação de regras MDC
 ```
 
 ## 🚀 Quick Start - 3 Passos

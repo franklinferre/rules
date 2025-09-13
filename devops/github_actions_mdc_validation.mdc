@@ -1,0 +1,68 @@
+---
+description: "Template para GitHub Actions que valida a conformidade de arquivos MDC com as regras do projeto, otimizado para o Cursor."
+globs: [".github/workflows/*.yml"]
+alwaysApply: false
+---
+
+# GitHub Actions: Validação de Regras MDC
+
+Este template de GitHub Actions garante que todos os arquivos `.mdc` do projeto estejam em conformidade com as regras estabelecidas, incluindo o formato, a presença de metadados (`description`, `globs`, `alwaysApply`) e o tamanho máximo de linha.
+
+## Workflow
+
+```yaml
+name: MDC Rules Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  validate-mdc-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: pip install markdown
+
+      - name: Run MDC Validation Script
+        run: python scripts/validate_rules.py
+
+      - name: Report Validation Status
+        if: failure()
+        run: echo "MDC rules validation failed. Please check the logs above for details." >> $GITHUB_STEP_SUMMARY
+```
+
+## `scripts/validate_rules.py` (Exemplo)
+
+O script `scripts/validate_rules.py` (ou similar) deve ser responsável por:
+
+*   **Verificar Metadados:** Garantir que cada `.mdc` tenha `description`, `globs` e `alwaysApply` no front-matter.
+*   **Tamanho de Arquivo:** Validar que arquivos `.mdc` não excedam o limite de 500 linhas (conforme boas práticas do Cursor).
+*   **Conformidade de Conteúdo:** Verificar a presença de seções obrigatórias (e.g., `Architectural Compliance & Quality Gates`, `MDC Compliance Checklist`).
+*   **Valores Codificados:** Opcionalmente, verificar a ausência de valores sensíveis codificados.
+
+## Implementation Notes
+
+[Use esta seção para registrar decisões de design, aprendizados, problemas encontrados e soluções durante a implementação deste workflow de validação.]
+
+## MDC Compliance Checklist
+
+- [ ] **Workflow Definido:** GitHub Actions para validação de MDC configurado.
+- [ ] **Script de Validação:** `validate_rules.py` implementado e funcional.
+- [ ] **Metadados Verificados:** Metadados do Cursor (`description`, `globs`, `alwaysApply`) validados.
+- [ ] **Tamanho de Arquivo:** Limite de 500 linhas para `.mdc` aplicado.
+- [ ] **Conformidade de Conteúdo:** Seções obrigatórias verificadas.
+
+
