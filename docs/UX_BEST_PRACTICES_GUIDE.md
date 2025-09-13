@@ -64,17 +64,29 @@ Este guia, elaborado com a perspectiva de um especialista em UX, visa fornecer d
 *   **WCAG (Web Content Accessibility Guidelines):** Diretrizes para acessibilidade na web.
 *   **Material Design, Human Interface Guidelines:** Guias de design para Android e iOS.
 
-## Implementation Notes
+## Integração com Cursor IDE e Agentes de IA para UX
 
-[Use esta seção para registrar decisões de design de UX, aprendizados de testes com usuários e outras considerações relevantes.]
+Para maximizar a eficiência e a qualidade do UX Design no desenvolvimento assistido por IA, o Cursor IDE e seus agentes podem ser utilizados de forma estratégica:
 
-## MDC Compliance Checklist
+*   **Pesquisa de Usuários Aprimorada por IA:**
+    *   **Análise de Transcrições:** Utilize o Cursor para analisar transcrições de entrevistas ou sessões de feedback, identificando padrões, sentimentos e pontos de dor comuns.
+    *   **Geração de Perguntas:** Agentes de IA podem sugerir perguntas para questionários ou roteiros de entrevistas com base em personas e objetivos do projeto.
+    *   **Síntese de Dados:** O Cursor pode ajudar a sintetizar grandes volumes de dados de pesquisa, gerando resumos e insights acionáveis.
 
-- [ ] **Pesquisa com Usuários:** Necessidades do usuário compreendidas.
-- [ ] **Protótipos Testados:** Protótipos validados com usuários.
-- [ ] **Acessibilidade Verificada:** Conformidade com as diretrizes WCAG.
-- [ ] **Consistência de Design:** Design system aplicado.
-- [ ] **Feedback do Sistema:** Feedback claro e imediato implementado.
-- [ ] **Navegação Intuitiva:** Navegação fácil de usar e entender.
+*   **Prototipagem e Testes Assistidos por IA:**
+    *   **Geração de Trechos de Código para UI:** Agentes podem gerar componentes de UI (HTML/CSS/JS) a partir de descrições de wireframes ou protótipos, acelerando a criação de protótipos funcionais.
+    *   **Simulação de Interações:** Agentes de IA podem simular interações de usuário em protótipos, identificando fluxos quebrados ou pontos de confusão antes dos testes com usuários reais.
+    *   **Feedback Automatizado:** O Cursor pode analisar o código de protótipos e sugerir melhorias de usabilidade ou acessibilidade com base nas `Project Rules` de UX.
 
+*   **Verificação de Acessibilidade Automatizada:**
+    *   **Análise Estática de Código:** Integre o Cursor com ferramentas de análise estática para identificar automaticamente problemas de acessibilidade no código (e.g., falta de `alt` tags, contraste insuficiente, estrutura semântica inadequada).
+    *   **Sugestões de Correção:** O Cursor pode propor correções para problemas de acessibilidade, aplicando as diretrizes WCAG diretamente no código.
+
+## UX para Ferramentas de IA e Desenvolvedores
+
+Ao projetar ferramentas de desenvolvimento assistidas por IA, como o Cursor, é crucial aplicar os princípios de UX para garantir que a experiência do desenvolvedor seja eficiente e agradável:
+
+*   **Clareza na Interação com IA:**
+    *   **Prompts e Respostas:** As interações com a IA devem ser claras, concisas e diretas. As respostas devem ser úteis e acionáveis, evitando ambiguidades.
+    *   **Feedback Visual:** O IDE deve fornecer feedback visual claro sobre o que a IA está fazendo (e.g., 
 
