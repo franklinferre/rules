@@ -28,6 +28,7 @@ franklinferre/rules/
 │   ├── DEVELOPMENT_PROCESS_GUIDE.md # Guia de Processo de Desenvolvimento em Fases
 │   ├── UX_BEST_PRACTICES_GUIDE.md   # Guia de Melhores Práticas de UX
 │   ├── MODEL_EVALUATION.md          # Avaliação e Recomendações de Modelos de IA
+│   ├── mcp_best_practices_guide.md  # Guia de Melhores Práticas para o MCP
 │   ├── ADR/                         # Architectural Decision Records
 │   │   └── adr_template.md          # Template para ADRs
 │   ├── cursor-best-practices-integration.md
@@ -272,6 +273,7 @@ Synthesis       → Combinação inteligente de insights
 - **[DEVELOPMENT_PROCESS_GUIDE.md](docs/DEVELOPMENT_PROCESS_GUIDE.md)** - Guia de Processo de Desenvolvimento em Fases
 - **[UX_BEST_PRACTICES_GUIDE.md](docs/UX_BEST_PRACTICES_GUIDE.md)** - Guia de Melhores Práticas de UX
 - **[MODEL_EVALUATION.md](docs/MODEL_EVALUATION.md)** - Avaliação e Recomendações de Modelos de IA
+- **[mcp_best_practices_guide.md](docs/mcp_best_practices_guide.md)** - Guia de Melhores Práticas para o MCP
 - **[CURSOR_DEPLOY_GUIDE.md](CURSOR_DEPLOY_GUIDE.md)** - Deploy completo em projetos novos
 - **[CURSOR_USAGE_GUIDE.md](CURSOR_USAGE_GUIDE.md)** - Como usar cada regra MDC
 - **[docs/migration-guide.md](docs/migration-guide.md)** - Migração de projetos existentes
