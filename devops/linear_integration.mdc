@@ -24,10 +24,12 @@ Para garantir uma integração eficaz e disciplinada com o Linear, as seguintes 
 *   **Criação de Issues:**
     *   Ao identificar um bug, uma nova funcionalidade ou um ajuste, o Cursor deve sugerir a criação de uma issue no Linear, preenchendo automaticamente campos como título, descrição (com contexto relevante do código ou problema), prioridade e responsável.
     *   O Cursor deve perguntar ao desenvolvedor antes de criar uma issue, oferecendo a opção de revisar e editar os detalhes.
+    *   **Implementação via API:** A criação de issues deve seguir as diretrizes de mutação GraphQL definidas em `linear_mcp_rules.mdc`.
 
 *   **Atualização de Status:**
     *   Quando o Cursor inicia o trabalho em uma issue do Linear, ele deve sugerir a atualização do status da issue (e.g., de "Backlog" para "In Progress").
     *   Ao concluir uma tarefa (e.g., após um commit), o Cursor deve sugerir a transição da issue para um status apropriado (e.g., "Ready for Review", "Done").
+    *   **Implementação via API:** As atualizações de status devem seguir as diretrizes de mutação GraphQL definidas em `linear_mcp_rules.mdc`.
 
 *   **Vinculação de Código e Commits:**
     *   Todos os commits gerados ou assistidos pelo Cursor devem incluir o ID da issue do Linear no corpo da mensagem de commit (e.g., `feat: Implementa autenticação [ENG-123]`).
@@ -36,6 +38,7 @@ Para garantir uma integração eficaz e disciplinada com o Linear, as seguintes 
 *   **Comentários e Discussões:**
     *   O Cursor deve ser capaz de adicionar comentários a issues do Linear, fornecendo atualizações de progresso, perguntas ou observações relevantes do código.
     *   Ao revisar código ou issues, o Cursor deve destacar informações do Linear que são relevantes para o contexto atual do código.
+    *   **Implementação via API:** A adição de comentários deve seguir as diretrizes de mutação GraphQL definidas em `linear_mcp_rules.mdc`.
 
 ### Portões de Qualidade de Dados no Linear
 
@@ -48,6 +51,13 @@ Para garantir uma integração eficaz e disciplinada com o Linear, as seguintes 
 
 *   **Evitar Duplicação:**
     *   Antes de criar uma nova issue, o Cursor deve realizar uma busca rápida no Linear para verificar se uma issue similar já existe, evitando duplicação de trabalho.
+    *   **Implementação via API:** A busca por issues existentes deve seguir as diretrizes de query GraphQL definidas em `linear_mcp_rules.mdc`.
+
+## Referência MCP e API do Linear
+
+Para detalhes técnicos sobre a configuração da API GraphQL do Linear, autenticação, queries e mutações, consulte o documento:
+
+*   **[linear_mcp_rules.mdc](linear_mcp_rules.mdc)** - Regras do Model Context Protocol (MCP) para o Cursor IDE interagir com a API GraphQL do Linear.
 
 ## Implementation Notes
 
@@ -59,12 +69,12 @@ Para garantir uma integração eficaz e disciplinada com o Linear, as seguintes 
 - [ ] **Atualização Contínua:** Status das issues atualizado proativamente.
 - [ ] **Contexto Rico:** Issues do Linear com informações relevantes.
 - [ ] **Automação Inteligente:** Criação/atualização de issues automatizada.
-- [ ] **Criação de Issues:** Cursor sugere e preenche issues.
-- [ ] **Atualização de Status:** Cursor sugere transições de status.
+- [ ] **Criação de Issues:** Cursor sugere e preenche issues (via API).
+- [ ] **Atualização de Status:** Cursor sugere transições de status (via API).
 - [ ] **Vinculação de Código:** Commits e branches vinculados a issues.
-- [ ] **Comentários e Discussões:** Cursor adiciona comentários relevantes.
+- [ ] **Comentários e Discussões:** Cursor adiciona comentários relevantes (via API).
 - [ ] **Contexto Mínimo da Issue:** Issues com título, descrição e links.
 - [ ] **Consistência de Dados:** Campos do Linear preenchidos consistentemente.
-- [ ] **Evitar Duplicação:** Verificação de issues existentes antes da criação.
-
+- [ ] **Evitar Duplicação:** Verificação de issues existentes antes da criação (via API).
+- [ ] **Referência MCP:** `linear_mcp_rules.mdc` referenciado e seguido para interações com a API.
 
