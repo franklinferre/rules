@@ -1,0 +1,67 @@
+---
+description: "Regras para garantir interações claras da IA e feedback visual no Cursor IDE, seguindo as melhores práticas de UX para ferramentas de IA."
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Regras de UX para Interação com IA no Cursor
+
+Este documento define as melhores práticas para garantir que as interações da IA dentro do Cursor IDE sejam claras, forneçam feedback visual adequado e mantenham o desenvolvedor no controle, aprimorando a experiência geral do usuário com ferramentas de IA.
+
+## Princípios Essenciais
+
+*   **Clareza na Comunicação:** As respostas e sugestões da IA devem ser diretas, concisas e fáceis de entender, evitando ambiguidades.
+*   **Feedback Visual Contínuo:** O Cursor deve fornecer feedback visual claro sobre o estado e as ações da IA em tempo real.
+*   **Controle e Autonomia do Desenvolvedor:** O desenvolvedor deve sempre ter a capacidade de revisar, aceitar, rejeitar ou modificar as sugestões da IA.
+*   **Transparência:** A IA deve ser transparente sobre suas capacidades, limitações e a fonte das informações ou sugestões.
+
+## Conformidade Arquitetural e Portões de Qualidade
+
+Para garantir uma experiência de usuário de alta qualidade com a IA, as seguintes regras de conformidade e portões de qualidade devem ser aplicados a todas as interações e interfaces do Cursor que envolvem agentes de IA:
+
+### Conformidade de Interação com IA
+
+*   **Formato de Resposta Consistente:**
+    *   As respostas da IA devem seguir um formato consistente (e.g., Markdown para código e explicações, listas para opções).
+    *   Use blocos de código (` ``` `) para trechos de código e destaque sintático.
+
+*   **Sinalização de Incerteza:**
+    *   A IA deve usar indicadores visuais ou textuais claros (e.g., `⚠️` ou "Não tenho certeza, mas...") quando houver incerteza ou a necessidade de validação humana.
+
+*   **Contexto Explícito:**
+    *   Sempre que a IA fizer uma sugestão ou pergunta, ela deve referenciar explicitamente o contexto que está utilizando (e.g., `@File`, `@Code`, `@Docs`).
+
+*   **Ações Claras e Acionáveis:**
+    *   As sugestões da IA devem ser acompanhadas de ações claras que o desenvolvedor pode tomar (e.g., "Aceitar", "Rejeitar", "Editar", "Gerar Testes").
+
+### Portões de Qualidade de Feedback Visual
+
+*   **Indicadores de Processamento:**
+    *   O Cursor deve exibir indicadores visuais (e.g., spinners, barras de progresso, mensagens de status) quando a IA estiver processando uma solicitação, gerando código ou buscando informações.
+    *   Esses indicadores devem ser distintos para diferentes tipos de operações (e.g., "Pensando...", "Gerando código...", "Buscando contexto...").
+
+*   **Diferenciação de Conteúdo Gerado por IA:**
+    *   O conteúdo gerado ou modificado pela IA deve ser visualmente distinto do código ou texto original do desenvolvedor (e.g., cores de fundo diferentes, ícones, bordas).
+    *   Diferenças (`diffs`) claras devem ser apresentadas para que o desenvolvedor possa revisar as alterações propostas pela IA.
+
+*   **Feedback de Erro e Sucesso:**
+    *   Mensagens de erro da IA devem ser claras, úteis e acionáveis, explicando o que deu errado e como corrigir.
+    *   Mensagens de sucesso devem confirmar a conclusão da tarefa e, se aplicável, indicar os próximos passos.
+
+## Implementation Notes
+
+[Use esta seção para registrar decisões de design de interação com IA, aprendizados de testes de usabilidade com desenvolvedores e outras considerações relevantes para aprimorar a UX da IA no Cursor.]
+
+## MDC Compliance Checklist
+
+- [ ] **Clareza na Comunicação:** Respostas da IA diretas e concisas.
+- [ ] **Feedback Visual Contínuo:** Indicadores de processamento e estado da IA presentes.
+- [ ] **Controle e Autonomia:** Desenvolvedor no controle das ações da IA.
+- [ ] **Transparência:** IA transparente sobre suas capacidades e fontes.
+- [ ] **Formato de Resposta Consistente:** Respostas da IA formatadas adequadamente.
+- [ ] **Sinalização de Incerteza:** Uso de indicadores visuais/textuais para incerteza.
+- [ ] **Contexto Explícito:** Referência explícita ao contexto utilizado pela IA.
+- [ ] **Ações Claras:** Sugestões da IA acompanhadas de ações acionáveis.
+- [ ] **Diferenciação de Conteúdo:** Conteúdo gerado por IA visualmente distinto.
+- [ ] **Feedback de Erro/Sucesso:** Mensagens de erro e sucesso claras e úteis.
+

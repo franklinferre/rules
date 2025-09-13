@@ -45,12 +45,13 @@ franklinferre/rules/
 │   ├── java.mdc                   # Java + Spring Boot
 │   └── php.mdc                    # PHP + Laravel/Symfony
 │
-├── ⚙️ devops/                      # Regras DevOps (5 áreas)
+├── ⚙️ devops/                      # Regras DevOps (6 áreas)
 │   ├── containers.mdc             # Docker + Kubernetes
 │   ├── cicd.mdc                   # CI/CD pipelines
 │   ├── cloud.mdc                  # AWS/GCP/Azure
 │   ├── monitoring.mdc             # Observabilidade
 │   ├── security.mdc               # Segurança DevSecOps
+│   ├── ai_interaction_ux.mdc      # UX para Interação com IA
 │   └── github_actions_mdc_validation.mdc # Template GitHub Actions para validação MDC
 │
 ├── 📝 templates/                   # Templates para novas regras
@@ -144,12 +145,13 @@ cp cursor-rules/.cursorindexignore your-project/
 - **`java.mdc`** - Java 21+ Spring Boot 3.x
 - **`php.mdc`** - PHP 8.3+ Laravel/Symfony
 
-### ⚙️ DevOps (5 áreas)
+### ⚙️ DevOps (6 áreas)
 - **`containers.mdc`** - Docker multi-stage + Kubernetes
-- **`cicd.mdc`** - GitHub Actions + GitLab CI
+- **`cicd.mdc`** - CI/CD pipelines
 - **`cloud.mdc`** - AWS/GCP/Azure best practices
 - **`monitoring.mdc`** - Prometheus + Grafana + OpenTelemetry
 - **`security.mdc`** - DevSecOps + SAST/DAST
+- **`ai_interaction_ux.mdc`** - UX para Interação com IA
 
 ### 🎯 Examples (2 padrões)
 - **`fullstack.mdc`** - Arquiteturas full-stack modernas
