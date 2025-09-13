@@ -29,6 +29,7 @@ franklinferre/rules/
 │   ├── UX_BEST_PRACTICES_GUIDE.md   # Guia de Melhores Práticas de UX
 │   ├── MODEL_EVALUATION.md          # Avaliação e Recomendações de Modelos de IA
 │   ├── mcp_best_practices_guide.md  # Guia de Melhores Práticas para o MCP
+│   ├── project_configuration_best_practices.md # Guia de Melhores Práticas para Configuração de Projetos
 │   ├── ADR/                         # Architectural Decision Records
 │   │   └── adr_template.md          # Template para ADRs
 │   ├── cursor-best-practices-integration.md
@@ -54,6 +55,7 @@ franklinferre/rules/
 │   ├── security.mdc               # Segurança DevSecOps
 │   ├── ai_interaction_ux.mdc      # UX para Interação com IA
 │   ├── linear_integration.mdc     # Integração com Linear
+│   ├── linear_mcp_rules.mdc       # Regras MCP para Integração com Linear
 │   └── github_actions_mdc_validation.mdc # Template GitHub Actions para validação MDC
 │
 ├── 📝 templates/                   # Templates para novas regras
@@ -155,6 +157,7 @@ cp cursor-rules/.cursorindexignore your-project/
 - **`security.mdc`** - DevSecOps + SAST/DAST
 - **`ai_interaction_ux.mdc`** - UX para Interação com IA
 - **`linear_integration.mdc`** - Integração com Linear
+- **`linear_mcp_rules.mdc`** - Regras MCP para Integração com Linear
 
 ### 🎯 Examples (2 padrões)
 - **`fullstack.mdc`** - Arquiteturas full-stack modernas
@@ -274,6 +277,7 @@ Synthesis       → Combinação inteligente de insights
 - **[UX_BEST_PRACTICES_GUIDE.md](docs/UX_BEST_PRACTICES_GUIDE.md)** - Guia de Melhores Práticas de UX
 - **[MODEL_EVALUATION.md](docs/MODEL_EVALUATION.md)** - Avaliação e Recomendações de Modelos de IA
 - **[mcp_best_practices_guide.md](docs/mcp_best_practices_guide.md)** - Guia de Melhores Práticas para o MCP
+- **[project_configuration_best_practices.md](docs/project_configuration_best_practices.md)** - Guia de Melhores Práticas para Configuração de Projetos
 - **[CURSOR_DEPLOY_GUIDE.md](CURSOR_DEPLOY_GUIDE.md)** - Deploy completo em projetos novos
 - **[CURSOR_USAGE_GUIDE.md](CURSOR_USAGE_GUIDE.md)** - Como usar cada regra MDC
 - **[docs/migration-guide.md](docs/migration-guide.md)** - Migração de projetos existentes
