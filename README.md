@@ -1,4 +1,3 @@
-
 # 🎯 Cursor MDC Rules Repository
 
 > **Repositório estruturado de regras Model-Driven Code (MDC) para Cursor IDE com integração N8N AI Workflow Generator**
@@ -26,6 +25,9 @@ franklinferre/rules/
 ├── 🚫 .cursorindexignore          # Indexação sob demanda
 │
 ├── 📚 docs/                        # Documentação completa
+│   ├── DEVELOPMENT_PROCESS_GUIDE.md # Guia de Processo de Desenvolvimento em Fases
+│   ├── UX_BEST_PRACTICES_GUIDE.md   # Guia de Melhores Práticas de UX
+│   ├── MODEL_EVALUATION.md          # Avaliação e Recomendações de Modelos de IA
 │   ├── cursor-best-practices-integration.md
 │   ├── migration-guide.md
 │   ├── project-rules-guide.md
@@ -49,16 +51,28 @@ franklinferre/rules/
 │   └── security.mdc               # Segurança DevSecOps
 │
 ├── 📝 templates/                   # Templates para novas regras
+│   ├── development_process/       # Templates para o processo de desenvolvimento
+│   │   └── phase_template.mdc     # Template para definição de fase
 │   ├── language-template.mdc      # Template para linguagens
 │   ├── api-template.mdc           # Template para APIs
 │   └── devops-template.mdc        # Template para DevOps
+│
+├── 🤖 personas/                   # Definições de persona para IA
+│   ├── security_expert.mdc        # Persona de especialista em segurança
+│   └── ux_expert.mdc              # Persona de especialista em UX
 │
 ├── 🎯 examples/                    # Exemplos práticos
 │   ├── fullstack.mdc              # Full-stack patterns
 │   └── supabase-integration.mdc   # Integração Supabase
 │
-└── 📦 modules/                     # Módulos especializados
-    └── rag_integration.pdf        # Integração RAG N8N
+├── 📦 modules/                     # Módulos especializados
+│   └── rag_integration.pdf        # Integração RAG N8N
+│
+├── 📜 scripts/                     # Scripts de automação e validação
+│   └── validate_rules.py          # Script para validação de regras MDC
+│
+└── 🛠️ devops/                      # Configurações e templates DevOps
+    └── github_actions_mdc_validation.mdc # Template GitHub Actions para validação MDC
 ```
 
 ## 🚀 Quick Start - 3 Passos
@@ -89,6 +103,9 @@ OTIMIZAÇÃO:
 - Respostas objetivas, diffs unificados
 - Use @File/@Code/@Web/@Terminal/@Git estrategicamente
 - OSCAR Framework: Objective-Specification-Context-Acceptance-References
+
+SINALIZAÇÃO DE INCERTEZA: Use o emoji ⚠️ para indicar incerteza ou a necessidade de validação humana em pontos críticos.
+TOM DE COMUNICAÇÃO: Mantenha um tom profissional, conciso e direto. Evite linguagem excessivamente entusiástica ou informal.
 ```
 
 ### 2️⃣ Project Rules (Específicas do Projeto)
@@ -248,13 +265,16 @@ Synthesis       → Combinação inteligente de insights
 ## 📚 Documentação Completa
 
 ### 🚀 Guias de Implementação
+- **[DEVELOPMENT_PROCESS_GUIDE.md](docs/DEVELOPMENT_PROCESS_GUIDE.md)** - Guia de Processo de Desenvolvimento em Fases
+- **[UX_BEST_PRACTICES_GUIDE.md](docs/UX_BEST_PRACTICES_GUIDE.md)** - Guia de Melhores Práticas de UX
+- **[MODEL_EVALUATION.md](docs/MODEL_EVALUATION.md)** - Avaliação e Recomendações de Modelos de IA
 - **[CURSOR_DEPLOY_GUIDE.md](CURSOR_DEPLOY_GUIDE.md)** - Deploy completo em projetos novos
 - **[CURSOR_USAGE_GUIDE.md](CURSOR_USAGE_GUIDE.md)** - Como usar cada regra MDC
 - **[docs/migration-guide.md](docs/migration-guide.md)** - Migração de projetos existentes
 
 ### 📖 Documentação Técnica
 - **[docs/cursor-best-practices-integration.md](docs/cursor-best-practices-integration.md)** - 10 Best Practices integradas
-- **[docs/project-rules-guide.md](docs/project-rules-guide.md)** - Regras específicas de projeto
+- **[docs/project-rules-guide.md](docs/project/rules-guide.md)** - Regras específicas de projeto
 - **[docs/user-rules-guide.md](docs/user-rules-guide.md)** - Configuração de regras globais
 
 ### 🤖 N8N Integration
@@ -360,3 +380,5 @@ MIT License - veja [LICENSE](LICENSE) para detalhes.
 ---
 
 **🎯 Pronto para começar?** Veja o [CURSOR_DEPLOY_GUIDE.md](CURSOR_DEPLOY_GUIDE.md) para implementação completa em 15 minutos!
+
+
